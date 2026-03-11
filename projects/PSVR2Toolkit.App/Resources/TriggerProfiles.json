@@ -1,0 +1,39 @@
+[
+  {
+    "name": "Off",
+    "description": "No resistance or feedback",
+    "type": "Off"
+  },
+  {
+    "name": "Soft",
+    "description": "Light feedback for casual games",
+    "type": "Feedback",
+    "position": 0,
+    "strength": 40
+  },
+  {
+    "name": "Arcade",
+    "description": "Snappy trigger with defined pull point",
+    "type": "Weapon",
+    "startPosition": 20,
+    "endPosition": 100,
+    "strength": 200
+  },
+  {
+    "name": "Realistic",
+    "description": "Gradual resistance like a real trigger",
+    "type": "SlopeFeedback",
+    "startPosition": 20,
+    "endPosition": 100,
+    "startStrength": 10,
+    "endStrength": 255
+  },
+  {
+    "name": "Rumble",
+    "description": "Vibration effect",
+    "type": "Vibration",
+    "position": 0,
+    "amplitude": 200,
+    "frequency": 20
+  }
+]

@@ -5,8 +5,206 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PSVR2Toolkit.App"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="PSVR2 Toolkit" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen">
     <Grid>
+        <TabControl Margin="10">
+            <TabItem Header="Health Check">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
+                    <TextBlock Grid.Row="0" FontSize="16" FontWeight="Bold" Margin="0,0,0,10">
+                        Driver Health Check
+                    </TextBlock>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="HealthCheckList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#CCCCCC" BorderThickness="1" Margin="0,0,0,10" Padding="10" CornerRadius="4">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="40"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0" FontSize="24" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Status}" Value="Pass">
+                                                                <Setter Property="Text" Value="✓"/>
+                                                                <Setter Property="Foreground" Value="Green"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Status}" Value="Fail">
+                                                                <Setter Property="Text" Value="✗"/>
+                                                                <Setter Property="Foreground" Value="Red"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding Status}" Value="Warning">
+                                                                <Setter Property="Text" Value="⚠"/>
+                                                                <Setter Property="Foreground" Value="Orange"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock FontWeight="Bold" Text="{Binding Name}"/>
+                                                <TextBlock Text="{Binding Description}" Foreground="#666666" FontSize="11"/>
+                                                <TextBlock Text="{Binding Message}" Margin="0,5,0,0"/>
+                                                <TextBlock Text="{Binding FixSuggestion}" Foreground="#CC0000" FontStyle="Italic" Margin="0,5,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding FixSuggestion}" Value="">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <TextBlock x:Name="HealthSummary" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button x:Name="RunHealthCheckButton" Content="Run Health Check" Padding="15,5" Click="RunHealthCheckButton_Click"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Trigger Profiles">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" FontSize="16" FontWeight="Bold" Margin="0,0,0,10">
+                        Adaptive Trigger Profiles
+                    </TextBlock>
+
+                    <StackPanel Grid.Row="1" Margin="0,0,0,10">
+                        <TextBlock Text="Profile:" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="ProfileComboBox" SelectionChanged="ProfileComboBox_SelectionChanged"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="2" Margin="0,0,0,10">
+                        <TextBlock Text="Controller:" Margin="0,0,0,5"/>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="LeftControllerRadio" Content="Left" GroupName="Controller" Margin="0,0,15,0" IsChecked="True"/>
+                            <RadioButton x:Name="RightControllerRadio" Content="Right" GroupName="Controller" Margin="0,0,15,0"/>
+                            <RadioButton x:Name="BothControllersRadio" Content="Both" GroupName="Controller"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button x:Name="ApplyProfileButton" Content="Apply Profile" Padding="15,5" Margin="0,0,10,0" Click="ApplyProfileButton_Click"/>
+                        <Button x:Name="TestProfileButton" Content="Live Test (1s)" Padding="15,5" Click="TestProfileButton_Click"/>
+                    </StackPanel>
+
+                    <Border Grid.Row="4" BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" CornerRadius="4">
+                        <StackPanel>
+                            <TextBlock FontWeight="Bold" Text="Current Effect:"/>
+                            <TextBlock x:Name="CurrentEffectLabel" Text="None" Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Gaze Debug">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" FontSize="16" FontWeight="Bold" Margin="0,0,0,10">
+                        Real-Time Eye Tracking Data
+                    </TextBlock>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" Margin="0,0,5,0" CornerRadius="4">
+                                <StackPanel>
+                                    <TextBlock FontWeight="Bold" FontSize="14" Text="Left Eye" Margin="0,0,0,10"/>
+
+                                    <TextBlock Text="Gaze Origin (mm):" FontWeight="Bold" Margin="0,5,0,2"/>
+                                    <TextBlock x:Name="LeftGazeOrigin" Text="N/A"/>
+
+                                    <TextBlock Text="Gaze Direction:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="LeftGazeDirection" Text="N/A"/>
+
+                                    <TextBlock Text="Pupil Diameter (mm):" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="LeftPupilDiameter" Text="N/A"/>
+
+                                    <TextBlock Text="Pupil Position in Sensor:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="LeftPupilPosition" Text="N/A"/>
+
+                                    <TextBlock Text="Position Guide:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="LeftPosGuide" Text="N/A"/>
+
+                                    <TextBlock Text="Blink:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="LeftBlink" Text="N/A"/>
+
+                                    <TextBlock Text="Openness:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="LeftOpenness" Text="N/A"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1" BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" Margin="5,0,0,0" CornerRadius="4">
+                                <StackPanel>
+                                    <TextBlock FontWeight="Bold" FontSize="14" Text="Right Eye" Margin="0,0,0,10"/>
+
+                                    <TextBlock Text="Gaze Origin (mm):" FontWeight="Bold" Margin="0,5,0,2"/>
+                                    <TextBlock x:Name="RightGazeOrigin" Text="N/A"/>
+
+                                    <TextBlock Text="Gaze Direction:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="RightGazeDirection" Text="N/A"/>
+
+                                    <TextBlock Text="Pupil Diameter (mm):" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="RightPupilDiameter" Text="N/A"/>
+
+                                    <TextBlock Text="Pupil Position in Sensor:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="RightPupilPosition" Text="N/A"/>
+
+                                    <TextBlock Text="Position Guide:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="RightPosGuide" Text="N/A"/>
+
+                                    <TextBlock Text="Blink:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="RightBlink" Text="N/A"/>
+
+                                    <TextBlock Text="Openness:" FontWeight="Bold" Margin="0,10,0,2"/>
+                                    <TextBlock x:Name="RightOpenness" Text="N/A"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </ScrollViewer>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <Button x:Name="PauseResumeButton" Content="Pause" Padding="15,5" Click="PauseResumeButton_Click"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>

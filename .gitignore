@@ -198,6 +198,10 @@ PublishScripts/
 *.nupkg
 # NuGet Symbol Packages
 *.snupkg
+# Local CLI and NuGet caches used by workspace scripts
+.dotnet/
+.nuget/packages/
+.nuget/http-cache/
 # The packages folder can be ignored because of Package Restore
 **/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.

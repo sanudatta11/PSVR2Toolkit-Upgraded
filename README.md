@@ -26,6 +26,32 @@ For developers, we also have our own API library, which allows you to take full 
 \* Eye tracking calibration is currently not available yet, we have a few things to work out before we are ready to ship this feature!
 
 ## Installation Guide
+
+### Automated Installation (Recommended)
+
+We provide PowerShell scripts to automate the installation process safely:
+
+**Install:**
+```powershell
+.\scripts\driver-install.ps1 -SourceDll .\driver_playstation_vr2.dll
+```
+
+**Restore (Uninstall):**
+```powershell
+.\scripts\driver-restore.ps1
+```
+
+The scripts will:
+- Automatically locate your Steam installation
+- Back up the original Sony driver
+- Install/restore the driver files
+- Verify the installation
+- Create a log file for troubleshooting
+
+### Manual Installation
+
+If you prefer to install manually or the automated script fails:
+
 1.) Open Steam, go to the PS VR2 app, click on the cog wheel, and go to "Manage -> Browse local files". (If you are using a copy of the PS VR2 app not installed by Steam, go to that instead.)
 
 2.) Inside the newly opened file explorer, go into "SteamVR_Plug-In", then "bin" and finally "win64".

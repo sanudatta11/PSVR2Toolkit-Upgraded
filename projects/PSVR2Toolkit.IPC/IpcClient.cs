@@ -23,6 +23,11 @@ namespace PSVR2Toolkit.CAPI {
         private ushort m_serverIpcVersion = k_unIpcVersion;
         private int m_gazePumpPeriodMs = 8; // 120Hz
         private CommandDataServerGazeDataResult2? m_lastGazeState = null;
+        private EHandshakeResult m_lastHandshakeResult = EHandshakeResult.Failed;
+
+        public EHandshakeResult LastHandshakeResult => m_lastHandshakeResult;
+        public ushort ServerIpcVersion => m_serverIpcVersion;
+        public bool IsConnected => m_running;
 
         public static IpcClient Instance() {
             if ( m_pInstance == null ) {
@@ -179,6 +184,7 @@ namespace PSVR2Toolkit.CAPI {
                         if ( header.dataLen == Marshal.SizeOf<CommandDataServerHandshakeResult>() ) {
                             CommandDataServerHandshakeResult response = ByteArrayToStructure<CommandDataServerHandshakeResult>(pBuffer, Marshal.SizeOf<CommandHeader>());
                             m_serverIpcVersion = response.ipcVersion;
+                            m_lastHandshakeResult = response.result;
                             switch ( response.result ) {
                                 case EHandshakeResult.Success: {
                                         Console.WriteLine("[IPC_CLIENT] Handshake successful!");
