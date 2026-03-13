@@ -34,14 +34,13 @@ namespace PSVR2Toolkit.App
 
     public class HealthCheckService
     {
-        private const int IPC_SERVER_PORT = 3364;
 
         public HealthReport RunHealthCheck()
         {
             var report = new HealthReport();
 
             report.Items.Add(CheckSteamInstallation());
-            
+
             var steamPath = FindSteamPath();
             if (steamPath != null)
             {
@@ -74,7 +73,7 @@ namespace PSVR2Toolkit.App
         private HealthCheckItem CheckSteamInstallation()
         {
             var steamPath = FindSteamPath();
-            
+
             if (steamPath != null)
             {
                 return new HealthCheckItem
@@ -99,7 +98,7 @@ namespace PSVR2Toolkit.App
         private HealthCheckItem CheckOriginalDll(string driverPath)
         {
             var origDllPath = Path.Combine(driverPath, "driver_playstation_vr2_orig.dll");
-            
+
             if (File.Exists(origDllPath))
             {
                 return new HealthCheckItem
@@ -124,7 +123,7 @@ namespace PSVR2Toolkit.App
         private HealthCheckItem CheckToolkitDll(string driverPath)
         {
             var toolkitDllPath = Path.Combine(driverPath, "driver_playstation_vr2.dll");
-            
+
             if (File.Exists(toolkitDllPath))
             {
                 return new HealthCheckItem
@@ -152,25 +151,30 @@ namespace PSVR2Toolkit.App
             {
                 using (var client = new TcpClient())
                 {
-                    var result = client.BeginConnect("127.0.0.1", IPC_SERVER_PORT, null, null);
-                    var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(1));
-                    
+                    var result = client.BeginConnect("127.0.0.1", AppConstants.IPC_SERVER_PORT, null, null);
+                    var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromMilliseconds(AppConstants.IPC_CONNECTION_TIMEOUT_MS));
+
                     if (success)
                     {
                         client.EndConnect(result);
+                        Logger.Info($"IPC connection successful on port {AppConstants.IPC_SERVER_PORT}");
                         return new HealthCheckItem
                         {
                             Name = "IPC Connection",
                             Description = "Check if driver IPC server is reachable",
                             Status = HealthCheckStatus.Pass,
-                            Message = $"Connected to port {IPC_SERVER_PORT}"
+                            Message = $"Connected to port {AppConstants.IPC_SERVER_PORT}"
                         };
+                    }
+                    else
+                    {
+                        Logger.Warning($"IPC connection timeout after {AppConstants.IPC_CONNECTION_TIMEOUT_MS}ms");
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Connection failed
+                Logger.Error($"IPC connection failed: {ex.Message}", ex);
             }
 
             return new HealthCheckItem
@@ -186,7 +190,7 @@ namespace PSVR2Toolkit.App
         private HealthCheckItem CheckHandshakeResult()
         {
             var client = IpcClient.Instance();
-            
+
             if (!client.IsConnected)
             {
                 return new HealthCheckItem
@@ -235,7 +239,7 @@ namespace PSVR2Toolkit.App
         private HealthCheckItem CheckIpcVersion()
         {
             var client = IpcClient.Instance();
-            
+
             if (!client.IsConnected)
             {
                 return new HealthCheckItem
@@ -248,7 +252,7 @@ namespace PSVR2Toolkit.App
                 };
             }
 
-            const ushort expectedVersion = 2; // Client expects version 2
+            const ushort expectedVersion = AppConstants.EXPECTED_IPC_VERSION;
             var serverVersion = client.ServerIpcVersion;
 
             if (serverVersion == expectedVersion)
@@ -296,14 +300,15 @@ namespace PSVR2Toolkit.App
                         var installPath = key.GetValue("InstallPath") as string;
                         if (!string.IsNullOrEmpty(installPath) && Directory.Exists(installPath))
                         {
+                            Logger.Debug($"Found Steam via registry: {installPath}");
                             return installPath;
                         }
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Registry access failed
+                Logger.Warning($"Registry access failed: {ex.Message}", ex);
             }
 
             // Try common paths

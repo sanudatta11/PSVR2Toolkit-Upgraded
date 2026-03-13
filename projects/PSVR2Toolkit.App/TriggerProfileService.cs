@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Newtonsoft.Json;
 using PSVR2Toolkit.CAPI;
@@ -60,26 +61,50 @@ namespace PSVR2Toolkit.App
                 var assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 if (assemblyPath != null)
                 {
-                    var jsonPath = Path.Combine(assemblyPath, "Resources", "TriggerProfiles.json");
-                    
+                    var jsonPath = Path.Combine(assemblyPath, AppConstants.PROFILES_FOLDER, AppConstants.PROFILES_FILENAME);
+
                     if (File.Exists(jsonPath))
                     {
-                        var json = File.ReadAllText(jsonPath);
-                        var loadedProfiles = JsonConvert.DeserializeObject<List<TriggerProfile>>(json);
-                        if (loadedProfiles != null)
+                        // Validate file size
+                        var fileInfo = new FileInfo(jsonPath);
+                        if (fileInfo.Length > AppConstants.MAX_JSON_FILE_SIZE_BYTES)
                         {
-                            profiles = loadedProfiles;
+                            Logger.Warning($"Profile file too large: {fileInfo.Length} bytes. Using defaults.");
+                            profiles = GetDefaultProfiles();
                             return;
                         }
+
+                        var json = File.ReadAllText(jsonPath);
+                        var loadedProfiles = JsonConvert.DeserializeObject<List<TriggerProfile>>(json);
+
+                        if (loadedProfiles != null && ValidateProfiles(loadedProfiles))
+                        {
+                            profiles = loadedProfiles;
+                            Logger.Info($"Loaded {profiles.Count} trigger profiles from {jsonPath}");
+                            return;
+                        }
+                        else
+                        {
+                            Logger.Warning("Profile validation failed. Using defaults.");
+                        }
+                    }
+                    else
+                    {
+                        Logger.Info($"Profile file not found at {jsonPath}. Using defaults.");
                     }
                 }
 
                 // Fallback to hardcoded profiles if file not found
                 profiles = GetDefaultProfiles();
             }
-            catch
+            catch (JsonException ex)
             {
-                // Use default profiles on error
+                Logger.Error($"JSON parsing error in trigger profiles: {ex.Message}", ex);
+                profiles = GetDefaultProfiles();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to load trigger profiles: {ex.Message}", ex);
                 profiles = GetDefaultProfiles();
             }
         }
@@ -133,6 +158,39 @@ namespace PSVR2Toolkit.App
             };
         }
 
+        private bool ValidateProfiles(List<TriggerProfile> profilesToValidate)
+        {
+            if (profilesToValidate.Count == 0 || profilesToValidate.Count > AppConstants.MAX_PROFILE_COUNT)
+            {
+                Logger.Warning($"Invalid profile count: {profilesToValidate.Count}");
+                return false;
+            }
+
+            foreach (var profile in profilesToValidate)
+            {
+                if (string.IsNullOrWhiteSpace(profile.Name))
+                {
+                    Logger.Warning("Profile has empty name");
+                    return false;
+                }
+
+                if (string.IsNullOrWhiteSpace(profile.Type))
+                {
+                    Logger.Warning($"Profile '{profile.Name}' has empty type");
+                    return false;
+                }
+
+                var validTypes = new[] { "off", "feedback", "weapon", "vibration", "slopefeedback" };
+                if (!validTypes.Contains(profile.Type.ToLower()))
+                {
+                    Logger.Warning($"Profile '{profile.Name}' has invalid type: {profile.Type}");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         public List<TriggerProfile> GetProfiles()
         {
             return profiles;
@@ -140,33 +198,54 @@ namespace PSVR2Toolkit.App
 
         public void ApplyProfile(TriggerProfile profile, EVRControllerType controller)
         {
-            var ipcClient = IpcClient.Instance();
-
-            switch (profile.Type.ToLower())
+            if (profile == null)
             {
-                case "off":
-                    ipcClient.TriggerEffectDisable(controller);
-                    break;
+                Logger.Warning("Attempted to apply null profile");
+                return;
+            }
 
-                case "feedback":
-                    ipcClient.TriggerEffectFeedback(controller, profile.Position, profile.Strength);
-                    break;
+            var ipcClient = IpcClient.Instance();
+            if (ipcClient == null)
+            {
+                Logger.Error("IPC client instance is null");
+                return;
+            }
 
-                case "weapon":
-                    ipcClient.TriggerEffectWeapon(controller, profile.StartPosition, profile.EndPosition, profile.Strength);
-                    break;
+            try
+            {
+                Logger.Info($"Applying profile '{profile.Name}' to {controller}");
 
-                case "vibration":
-                    ipcClient.TriggerEffectVibration(controller, profile.Position, profile.Amplitude, profile.Frequency);
-                    break;
+                switch (profile.Type.ToLower())
+                {
+                    case "off":
+                        ipcClient.TriggerEffectDisable(controller);
+                        break;
 
-                case "slopefeedback":
-                    ipcClient.TriggerEffectSlopeFeedback(controller, profile.StartPosition, profile.EndPosition, profile.StartStrength, profile.EndStrength);
-                    break;
+                    case "feedback":
+                        ipcClient.TriggerEffectFeedback(controller, profile.Position, profile.Strength);
+                        break;
 
-                default:
-                    ipcClient.TriggerEffectDisable(controller);
-                    break;
+                    case "weapon":
+                        ipcClient.TriggerEffectWeapon(controller, profile.StartPosition, profile.EndPosition, profile.Strength);
+                        break;
+
+                    case "vibration":
+                        ipcClient.TriggerEffectVibration(controller, profile.Position, profile.Amplitude, profile.Frequency);
+                        break;
+
+                    case "slopefeedback":
+                        ipcClient.TriggerEffectSlopeFeedback(controller, profile.StartPosition, profile.EndPosition, profile.StartStrength, profile.EndStrength);
+                        break;
+
+                    default:
+                        Logger.Warning($"Unknown profile type: {profile.Type}");
+                        ipcClient.TriggerEffectDisable(controller);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to apply profile '{profile.Name}': {ex.Message}", ex);
             }
         }
     }

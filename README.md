@@ -31,9 +31,14 @@ For developers, we also have our own API library, which allows you to take full 
 
 We provide PowerShell scripts to automate the installation process safely:
 
-**Install:**
+**Full Install (Driver + SteamVR Settings Integration):**
 ```powershell
-.\scripts\driver-install.ps1 -SourceDll .\driver_playstation_vr2.dll
+.\scripts\driver-install-full.ps1 -SourceDll .\x64\Release\driver_playstation_vr2.dll
+```
+
+**Driver Only Install:**
+```powershell
+.\scripts\driver-install.ps1 -SourceDll .\x64\Release\driver_playstation_vr2.dll
 ```
 
 **Restore (Uninstall):**
@@ -45,8 +50,24 @@ The scripts will:
 - Automatically locate your Steam installation
 - Back up the original Sony driver
 - Install/restore the driver files
+- Optionally install SteamVR settings integration (full install only)
 - Verify the installation
 - Create a log file for troubleshooting
+
+### SteamVR Settings Integration
+
+The full installation includes **in-VR settings integration** that adds a native "PlayStation VR2" section to SteamVR's settings menu, allowing you to toggle toolkit features without leaving VR:
+
+- **Enable Eyelid Estimation** - Toggle experimental eyelid tracking
+- **Disable Play Area** - Turn off chaperone boundaries
+- **Hide PlayStation VR2 Overlay** - Remove Sony overlay
+- **Disable Dialog Pop-Ups** - Suppress Sony dialogs
+- **Disable PlayStation VR2 Sense Controllers** - Turn off controller support
+- **Disable Eye Tracking** - Turn off gaze tracking
+
+Access via: **SteamVR Settings → PlayStation VR2**
+
+*SteamVR settings integration created by community member - integrated into official distribution with permission.*
 
 ### Manual Installation
 
@@ -63,6 +84,45 @@ If you prefer to install manually or the automated script fails:
 5.) Your "win64" directory should now have 2 DLL files inside it, "driver_playstation_vr2.dll" and "driver_playstation_vr2_orig.dll". If you do not have both of those files, you fucked something up.
 
 6.) Enjoy your new features, please give us feedback in our [Discord](https://discord.gg/dPsfJhsGwb).
+
+## Post-Installation
+
+After installation, **restart SteamVR** for changes to take effect.
+
+### Companion Application
+
+Run `PSVR2Toolkit.App.exe` for additional features:
+- **Health Check** - Diagnose installation and connection issues
+- **Trigger Profiles** - Apply preset haptic effects (Off, Soft, Arcade, Realistic, Rumble)
+- **Gaze Debug** - View real-time eye tracking data
+
+### Verify Installation
+
+Use the Health Check tab in the companion app to verify:
+- ✓ Steam installation detected
+- ✓ Driver files correctly installed
+- ✓ IPC connection established
+- ✓ Version compatibility
+
+## Troubleshooting
+
+**Problem: "Backup already exists" error**
+- Driver may already be installed. Use `-Force` flag to reinstall.
+
+**Problem: SteamVR settings not showing**
+- Restart SteamVR completely
+- Verify files were copied to correct locations
+
+**Problem: IPC connection failed**
+- Start SteamVR with PS VR2 connected
+- Check Windows Firewall isn't blocking port 3364
+- Restart the companion application
+
+**Problem: Eye tracking not working**
+- Ensure "Disable Eye Tracking" is OFF in SteamVR settings
+- Eye tracking calibration is not yet available (coming soon)
+
+For more help, visit our [Discord](https://discord.gg/dPsfJhsGwb).
 
 # Contact
 Have any legal complaints or questions?

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -15,6 +16,8 @@ public partial class MainWindow : Window
     private readonly TriggerProfileService triggerProfileService;
     private readonly DispatcherTimer gazeUpdateTimer;
     private bool gazeUpdatePaused = false;
+    private bool isUpdatingGaze = false;
+    private CancellationTokenSource? gazeCancellationTokenSource;
 
     public MainWindow()
     {
@@ -23,19 +26,36 @@ public partial class MainWindow : Window
         healthCheckService = new HealthCheckService();
         triggerProfileService = new TriggerProfileService();
 
+        // Set window title with version
+        Title = $"{AppConstants.APP_NAME} v{AppConstants.APP_VERSION}";
+
         // Initialize gaze update timer
         gazeUpdateTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(100) // 10 Hz
+            Interval = TimeSpan.FromMilliseconds(AppConstants.GAZE_UPDATE_INTERVAL_MS)
         };
         gazeUpdateTimer.Tick += GazeUpdateTimer_Tick;
         gazeUpdateTimer.Start();
+
+        gazeCancellationTokenSource = new CancellationTokenSource();
 
         // Load trigger profiles
         LoadTriggerProfiles();
 
         // Run initial health check
         RunHealthCheck();
+
+        Logger.Info($"{AppConstants.APP_NAME} v{AppConstants.APP_VERSION} started");
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        // Clean up resources
+        gazeUpdateTimer?.Stop();
+        gazeCancellationTokenSource?.Cancel();
+        gazeCancellationTokenSource?.Dispose();
+        Logger.Info("Application closed");
+        base.OnClosed(e);
     }
 
     // Health Check handlers
@@ -46,10 +66,18 @@ public partial class MainWindow : Window
 
     private void RunHealthCheck()
     {
-        var report = healthCheckService.RunHealthCheck();
-        HealthCheckList.ItemsSource = report.Items;
-
-        HealthSummary.Text = $"✓ {report.PassCount}  ✗ {report.FailCount}  ⚠ {report.WarningCount}";
+        try
+        {
+            Logger.Info("Running health check");
+            var report = healthCheckService.RunHealthCheck();
+            HealthCheckList.ItemsSource = report.Items;
+            HealthSummary.Text = $"✓ {report.PassCount}  ✗ {report.FailCount}  ⚠ {report.WarningCount}";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Health check failed", ex);
+            HealthSummary.Text = "Health check failed - see logs";
+        }
     }
 
     // Trigger Profile handlers
@@ -82,17 +110,31 @@ public partial class MainWindow : Window
         var controller = GetSelectedController();
         var profile = ProfileComboBox.SelectedItem as TriggerProfile;
 
-        if (profile != null)
+        if (profile == null)
         {
-            triggerProfileService.ApplyProfile(profile, controller);
+            Logger.Warning("No profile selected for test");
+            return;
+        }
+
+        try
+        {
+            triggerProfileService?.ApplyProfile(profile, controller);
             CurrentEffectLabel.Text = $"Testing: {profile.Name}";
 
-            await Task.Delay(1000);
+            await Task.Delay(AppConstants.TRIGGER_TEST_DURATION_MS);
 
-            // Turn off after 1 second
+            // Turn off after test duration
             var ipcClient = IpcClient.Instance();
-            ipcClient.TriggerEffectDisable(controller);
-            CurrentEffectLabel.Text = "Off (test complete)";
+            if (ipcClient != null)
+            {
+                ipcClient.TriggerEffectDisable(controller);
+                CurrentEffectLabel.Text = "Off (test complete)";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Test profile failed: {ex.Message}", ex);
+            CurrentEffectLabel.Text = "Test failed - see logs";
         }
     }
 
@@ -101,10 +143,21 @@ public partial class MainWindow : Window
         var controller = GetSelectedController();
         var profile = ProfileComboBox.SelectedItem as TriggerProfile;
 
-        if (profile != null)
+        if (profile == null)
         {
-            triggerProfileService.ApplyProfile(profile, controller);
+            Logger.Warning("No profile selected to apply");
+            return;
+        }
+
+        try
+        {
+            triggerProfileService?.ApplyProfile(profile, controller);
             CurrentEffectLabel.Text = $"{profile.Name} applied to {controller}";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Apply profile failed: {ex.Message}", ex);
+            CurrentEffectLabel.Text = "Apply failed - see logs";
         }
     }
 
@@ -118,20 +171,49 @@ public partial class MainWindow : Window
     }
 
     // Gaze Debug handlers
-    private void GazeUpdateTimer_Tick(object? sender, EventArgs e)
+    private async void GazeUpdateTimer_Tick(object? sender, EventArgs e)
     {
-        if (gazeUpdatePaused)
+        if (gazeUpdatePaused || isUpdatingGaze)
             return;
 
-        var ipcClient = IpcClient.Instance();
-        if (!ipcClient.IsConnected)
+        isUpdatingGaze = true;
+        try
         {
-            SetGazeDataUnavailable();
-            return;
-        }
+            var ipcClient = IpcClient.Instance();
+            if (ipcClient == null || !ipcClient.IsConnected)
+            {
+                SetGazeDataUnavailable();
+                return;
+            }
 
-        var gazeData = ipcClient.RequestEyeTrackingData();
-        UpdateGazeDisplay(gazeData);
+            // Move network I/O off UI thread
+            var gazeData = await Task.Run(() =>
+            {
+                try
+                {
+                    return ipcClient.RequestEyeTrackingData();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"Failed to request eye tracking data: {ex.Message}", ex);
+                    return default(CommandDataServerGazeDataResult2);
+                }
+            }, gazeCancellationTokenSource?.Token ?? CancellationToken.None);
+
+            UpdateGazeDisplay(gazeData);
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal cancellation, ignore
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Gaze update failed: {ex.Message}", ex);
+        }
+        finally
+        {
+            isUpdatingGaze = false;
+        }
     }
 
     private void UpdateGazeDisplay(CommandDataServerGazeDataResult2 gazeData)

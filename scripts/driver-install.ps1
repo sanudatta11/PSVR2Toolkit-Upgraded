@@ -31,10 +31,10 @@ $ErrorActionPreference = "Stop"
 param(
     [Parameter(Mandatory=$true)]
     [string]$SourceDll,
-    
+
     [Parameter(Mandatory=$false)]
     [string]$SteamPath,
-    
+
     [Parameter(Mandatory=$false)]
     [switch]$Force
 )
@@ -90,22 +90,22 @@ function Find-SteamPath {
 
 function Find-DriverPath {
     param([string]$SteamRoot)
-    
+
     $relativePath = "steamapps\common\PS VR2\SteamVR_Plug-In\bin\win64"
     $driverPath = Join-Path $SteamRoot $relativePath
-    
+
     if (Test-Path $driverPath) {
         return $driverPath
     }
-    
+
     # Try alternative casing
     $relativePath = "SteamApps\common\PS VR2\SteamVR_Plug-In\bin\win64"
     $driverPath = Join-Path $SteamRoot $relativePath
-    
+
     if (Test-Path $driverPath) {
         return $driverPath
     }
-    
+
     return $null
 }
 
@@ -113,16 +113,47 @@ function Find-DriverPath {
 try {
     Write-Log "=== PSVR2 Toolkit Driver Installation ===" "INFO"
     Write-Log ""
-    
+
     # Validate source DLL
     if (-not (Test-Path $SourceDll)) {
         Write-Log "Source DLL not found: $SourceDll" "ERROR"
         exit 1
     }
-    
+
+    # Security: Validate DLL file extension
+    if (-not $SourceDll.EndsWith(".dll")) {
+        Write-Log "Source file must be a .dll file" "ERROR"
+        exit 1
+    }
+
     $sourceDllFullPath = (Resolve-Path $SourceDll).Path
     Write-Log "Source DLL: $sourceDllFullPath"
-    
+
+    # Security: Validate file size
+    $fileInfo = Get-Item $sourceDllFullPath
+    if ($fileInfo.Length -eq 0) {
+        Write-Log "DLL file is empty (0 bytes)" "ERROR"
+        exit 1
+    }
+    if ($fileInfo.Length -gt 10MB) {
+        Write-Log "DLL file is suspiciously large: $($fileInfo.Length) bytes (>10MB)" "ERROR"
+        exit 1
+    }
+    Write-Log "DLL file size: $($fileInfo.Length) bytes"
+
+    # Security: Check digital signature (warning only)
+    try {
+        $signature = Get-AuthenticodeSignature $sourceDllFullPath
+        if ($signature.Status -eq "Valid") {
+            Write-Log "DLL is digitally signed by: $($signature.SignerCertificate.Subject)" "INFO"
+        } else {
+            Write-Log "Warning: DLL is not digitally signed (Status: $($signature.Status))" "WARN"
+            Write-Log "This is expected for development builds but be cautious with untrusted sources" "WARN"
+        }
+    } catch {
+        Write-Log "Could not verify digital signature: $_" "WARN"
+    }
+
     # Find Steam installation
     Write-Log "Locating Steam installation..."
     $steamPath = Find-SteamPath
@@ -130,7 +161,7 @@ try {
         Write-Log "Could not locate Steam installation. Please use -SteamPath parameter." "ERROR"
         exit 1
     }
-    
+
     # Find driver directory
     Write-Log "Locating PS VR2 driver directory..."
     $driverPath = Find-DriverPath -SteamRoot $steamPath
@@ -139,21 +170,21 @@ try {
         Write-Log "Expected path: steamapps\common\PS VR2\SteamVR_Plug-In\bin\win64" "ERROR"
         exit 1
     }
-    
+
     Write-Log "Driver directory: $driverPath"
-    
+
     # Define file paths
     $originalDll = Join-Path $driverPath "driver_playstation_vr2.dll"
     $backupDll = Join-Path $driverPath "driver_playstation_vr2_orig.dll"
     $logFile = Join-Path $driverPath "install_log.txt"
-    
+
     # Check if original DLL exists
     if (-not (Test-Path $originalDll)) {
         Write-Log "Original Sony driver DLL not found: $originalDll" "ERROR"
         Write-Log "Please ensure PS VR2 app is installed via Steam." "ERROR"
         exit 1
     }
-    
+
     # Check if backup already exists
     if (Test-Path $backupDll) {
         if ($Force) {
@@ -165,10 +196,10 @@ try {
             exit 1
         }
     }
-    
+
     Write-Log ""
     Write-Log "=== Installation Steps ===" "INFO"
-    
+
     # Step 1: Backup original DLL
     Write-Log "Step 1: Backing up original Sony driver..."
     try {
@@ -178,7 +209,7 @@ try {
         Write-Log "Failed to create backup: $_" "ERROR"
         exit 1
     }
-    
+
     # Step 2: Remove original DLL
     Write-Log "Step 2: Removing original driver..."
     try {
@@ -191,7 +222,7 @@ try {
         Remove-Item -Path $backupDll -Force
         exit 1
     }
-    
+
     # Step 3: Copy toolkit DLL
     Write-Log "Step 3: Installing PSVR2 Toolkit driver..."
     try {
@@ -204,12 +235,12 @@ try {
         Remove-Item -Path $backupDll -Force
         exit 1
     }
-    
+
     # Step 4: Verify installation
     Write-Log "Step 4: Verifying installation..."
     $verifyOriginal = Test-Path $originalDll
     $verifyBackup = Test-Path $backupDll
-    
+
     if ($verifyOriginal -and $verifyBackup) {
         Write-Log "  ✓ Verification passed"
         Write-Log "    - driver_playstation_vr2.dll (toolkit): $(Test-Path $originalDll)"
@@ -220,7 +251,7 @@ try {
         Write-Log "  - driver_playstation_vr2_orig.dll: $verifyBackup" "ERROR"
         exit 1
     }
-    
+
     # Step 5: Write log file
     Write-Log "Step 5: Writing installation log..."
     $logContent = @"
@@ -238,22 +269,22 @@ Files:
 
 To restore the original driver, run: .\driver-restore.ps1
 "@
-    
+
     try {
         $logContent | Out-File -FilePath $logFile -Encoding UTF8 -Append
         Write-Log "  ✓ Log written to: $logFile"
     } catch {
         Write-Log "Failed to write log file: $_" "WARN"
     }
-    
+
     Write-Log ""
     Write-Log "=== Installation Complete ===" "INFO"
     Write-Log "PSVR2 Toolkit driver has been successfully installed."
     Write-Log "Please restart SteamVR for changes to take effect."
     Write-Log ""
-    
+
     exit 0
-    
+
 } catch {
     Write-Log "Unexpected error during installation: $_" "ERROR"
     Write-Log $_.ScriptStackTrace "ERROR"
