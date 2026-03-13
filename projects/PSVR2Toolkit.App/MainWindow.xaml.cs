@@ -626,6 +626,68 @@ public partial class MainWindow : Window
             Logger.Error($"Failed to handle recalibration notification: {ex.Message}", ex);
         }
     }
+
+    // Headset Haptics handlers
+    private void HapticSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (HapticAmplitudeLabel != null)
+            HapticAmplitudeLabel.Text = ((int)HapticAmplitudeSlider.Value).ToString();
+        if (HapticFrequencyLabel != null)
+            HapticFrequencyLabel.Text = ((int)HapticFrequencySlider.Value).ToString();
+    }
+
+    private async void TestHapticButton_Click(object sender, RoutedEventArgs e)
+    {
+        var ipcClient = IpcClient.Instance();
+        if (ipcClient == null || !ipcClient.IsConnected)
+        {
+            HapticStatusLabel.Text = "Not connected to driver";
+            Logger.Warning("Cannot test haptic: IPC client not connected");
+            return;
+        }
+
+        byte amplitude = (byte)(int)HapticAmplitudeSlider.Value;
+        byte frequency = (byte)(int)HapticFrequencySlider.Value;
+
+        try
+        {
+            ipcClient.HeadsetHapticVibration(amplitude, frequency);
+            HapticStatusLabel.Text = $"Testing: amplitude={amplitude}, frequency={frequency}";
+            Logger.Info($"Headset haptic test: amplitude={amplitude}, frequency={frequency}");
+
+            await Task.Delay(AppConstants.HAPTIC_TEST_DURATION_MS);
+
+            // Stop haptic after test duration by sending amplitude 0
+            ipcClient.HeadsetHapticVibration(0, 0);
+            HapticStatusLabel.Text = "Idle (test complete)";
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Headset haptic test failed: {ex.Message}", ex);
+            HapticStatusLabel.Text = "Test failed - see logs";
+        }
+    }
+
+    private void StopHapticButton_Click(object sender, RoutedEventArgs e)
+    {
+        var ipcClient = IpcClient.Instance();
+        if (ipcClient == null || !ipcClient.IsConnected)
+        {
+            HapticStatusLabel.Text = "Not connected to driver";
+            return;
+        }
+
+        try
+        {
+            ipcClient.HeadsetHapticVibration(0, 0);
+            HapticStatusLabel.Text = "Idle";
+            Logger.Info("Headset haptic stopped");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Failed to stop headset haptic: {ex.Message}", ex);
+        }
+    }
 }
 
 public enum RecalibrationChoice

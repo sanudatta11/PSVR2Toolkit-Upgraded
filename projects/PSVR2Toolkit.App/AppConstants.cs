@@ -9,7 +9,8 @@ namespace PSVR2Toolkit.App
         public const int GAZE_UPDATE_INTERVAL_MS = 100;
         public const int IPC_CONNECTION_TIMEOUT_MS = 1000;
         public const int TRIGGER_TEST_DURATION_MS = 1000;
-        public const ushort EXPECTED_IPC_VERSION = 4;
+        public const int HAPTIC_TEST_DURATION_MS = 1000;
+        public const ushort EXPECTED_IPC_VERSION = 5;
         public const int MAX_PROFILE_COUNT = 100;
         public const int MAX_JSON_FILE_SIZE_BYTES = 1024 * 1024; // 1MB
 

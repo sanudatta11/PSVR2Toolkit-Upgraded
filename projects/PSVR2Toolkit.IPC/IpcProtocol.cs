@@ -26,6 +26,9 @@ namespace PSVR2Toolkit.CAPI {
         ClientDisableGazeCursor, // No command data.
 
         ServerRecalibrationNeeded, // No command data - notification from server
+
+        // Headset haptic feedback (IPC version 5+)
+        ClientHeadsetHapticVibration, // CommandDataClientHeadsetHapticVibration
     };
 
     public enum EHandshakeResult : byte {
@@ -176,5 +179,15 @@ namespace PSVR2Toolkit.CAPI {
         public float sensitivity;  // Cursor movement sensitivity (0.1 - 5.0, default 1.0)
         public float smoothing;    // Smoothing factor (0.0 - 1.0, default 0.3)
         public float deadzone;     // Center deadzone radius (0.0 - 0.5, default 0.05)
+    };
+
+    /// <summary>
+    /// Headset haptic vibration command (IPC version 5+).
+    /// Drives the haptic motor built into the PSVR2 headband.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct CommandDataClientHeadsetHapticVibration {
+        public byte amplitude;   // Motor strength (0 = off, 255 = maximum)
+        public byte frequency;   // Vibration frequency in Hz (0-255)
     };
 }

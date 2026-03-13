@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace PSVR2Toolkit.CAPI {
     public class IpcClient {
         private const ushort IPC_SERVER_PORT = 3364;
-        private const ushort k_unIpcVersion = 4;
+        private const ushort k_unIpcVersion = 5;
 
         private static IpcClient m_pInstance;
 
@@ -428,6 +428,24 @@ namespace PSVR2Toolkit.CAPI {
             }
 
             SendIpcCommand(ECommandType.ClientDisableGazeCursor);
+        }
+
+        /// <summary>
+        /// Sends a haptic vibration command to the PSVR2 headset's built-in haptic motor.
+        /// Requires IPC server version 5 or later.
+        /// </summary>
+        /// <param name="amplitude">Motor strength (0 = off, 255 = maximum).</param>
+        /// <param name="frequency">Vibration frequency in Hz (0-255).</param>
+        public void HeadsetHapticVibration(byte amplitude, byte frequency) {
+            if ( !m_running ) {
+                return;
+            }
+
+            CommandDataClientHeadsetHapticVibration haptic = new CommandDataClientHeadsetHapticVibration() {
+                amplitude = amplitude,
+                frequency = frequency,
+            };
+            SendIpcCommand(ECommandType.ClientHeadsetHapticVibration, haptic);
         }
     }
 }

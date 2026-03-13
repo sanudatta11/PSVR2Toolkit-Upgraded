@@ -1,5 +1,6 @@
 #include "ipc_server.h"
 
+#include "headset_haptic_manager.h"
 #include "trigger_effect_manager.h"
 #include "util.h"
 #include "vr_settings.h"
@@ -64,6 +65,8 @@ namespace psvr2_toolkit {
       m_initialized = true;
       m_doGaze = !VRSettings::GetBool(STEAMVR_SETTINGS_DISABLE_GAZE, SETTING_DISABLE_GAZE_DEFAULT_VALUE);
       m_doOpenness = VRSettings::GetBool(STEAMVR_SETTINGS_ENABLE_EYELID_ESTIMATION, SETTING_ENABLE_EYELID_ESTIMATION_DEFAULT_VALUE);
+
+      HeadsetHapticManager::Instance()->Initialize();
 
       LoadCalibrationFile();
     }
@@ -213,6 +216,7 @@ namespace psvr2_toolkit {
 
     void IpcServer::HandleIpcCommand(SOCKET clientSocket, const sockaddr_in &clientAddr, char *pBuffer) {
       static TriggerEffectManager *pTriggerEffectManager = TriggerEffectManager::Instance();
+      static HeadsetHapticManager *pHeadsetHapticManager = HeadsetHapticManager::Instance();
 
       uint16_t clientPort = ntohs(clientAddr.sin_port);
 
@@ -515,6 +519,22 @@ namespace psvr2_toolkit {
           if (pHeader->dataLen == 0 && m_connections.contains(clientPort)) {
             m_gazeCursorEnabled = false;
             Util::DriverLog("[IPC_SERVER] Gaze cursor disabled");
+          }
+          break;
+        }
+
+        case Command_ClientHeadsetHapticVibration: {
+          uint32_t processId = 0;
+          bool isConnected = false;
+          {
+            std::lock_guard<std::mutex> lock(m_connectionsMutex);
+            if (m_connections.contains(clientPort)) {
+              isConnected = true;
+              processId = m_connections[clientPort].processId;
+            }
+          }
+          if (isConnected) {
+            pHeadsetHapticManager->HandleIpcCommand(processId, pHeader, pData);
           }
           break;
         }

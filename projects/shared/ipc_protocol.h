@@ -7,7 +7,7 @@
 namespace psvr2_toolkit {
   namespace ipc {
 
-    static constexpr uint16_t k_unIpcVersion = 4;
+    static constexpr uint16_t k_unIpcVersion = 5;
     static constexpr uint32_t k_unTriggerEffectControlPoint = 10;
 
     enum ECommandType : uint16_t {
@@ -35,6 +35,9 @@ namespace psvr2_toolkit {
       Command_ClientDisableGazeCursor, // No command data.
 
       Command_ServerRecalibrationNeeded, // No command data - notification from server to client
+
+      // Headset haptic feedback (IPC version 5+)
+      Command_ClientHeadsetHapticVibration, // CommandDataClientHeadsetHapticVibration_t
     };
 
     enum EHandshakeResultType : uint8_t {
@@ -192,6 +195,13 @@ namespace psvr2_toolkit {
       float sensitivity;  // Cursor movement sensitivity (0.1 - 5.0, default 1.0)
       float smoothing;    // Smoothing factor (0.0 - 1.0, default 0.3)
       float deadzone;     // Center deadzone radius (0.0 - 0.5, default 0.05)
+    };
+
+    // Headset haptic vibration command data (IPC version 5+).
+    // Drives the haptic motor built into the PSVR2 headband.
+    struct CommandDataClientHeadsetHapticVibration_t {
+      uint8_t amplitude;  // Motor strength (0 = off, 255 = maximum)
+      uint8_t frequency;  // Vibration frequency in Hz (0-255)
     };
 
     struct CommandHeader_t {
