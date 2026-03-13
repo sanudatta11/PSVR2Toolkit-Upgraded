@@ -69,7 +69,7 @@ namespace psvr2_toolkit {
     }
 
     void IpcServer::Start() {
-      if (!m_initialized && m_running) {
+      if (!m_initialized || m_running) {
         return;
       }
 
@@ -80,7 +80,7 @@ namespace psvr2_toolkit {
       }
 
       m_serverAddr.sin_family = AF_INET;
-      m_serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+      m_serverAddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
       m_serverAddr.sin_port = htons(IPC_SERVER_PORT);
 
       if (bind(m_socket, reinterpret_cast<SOCKADDR * >(&m_serverAddr), sizeof(m_serverAddr)) == SOCKET_ERROR) {
@@ -110,11 +110,12 @@ namespace psvr2_toolkit {
     }
 
     void IpcServer::UpdateGazeState(Hmd2GazeState *pGazeState, float leftEyelidOpenness, float rightEyelidOpenness) {
+      std::lock_guard<std::mutex> lock(m_gazeStateMutex);
       if (!m_pGazeState) {
-        m_pGazeState = reinterpret_cast<Hmd2GazeState *>(malloc(sizeof(Hmd2GazeState)));
+        m_pGazeState = new Hmd2GazeState;
       }
       if (m_pGazeState) {
-        memcpy(m_pGazeState, pGazeState, sizeof(Hmd2GazeState)); // Realistically, we should have a mutex here. Sadly, we do not have the time.
+        *m_pGazeState = *pGazeState;
       }
       m_leftEyelidOpenness = leftEyelidOpenness;
       m_rightEyelidOpenness = rightEyelidOpenness;
@@ -202,6 +203,11 @@ namespace psvr2_toolkit {
 
         HandleIpcCommand(clientSocket, clientAddr, pBuffer);
       }
+
+      {
+        std::lock_guard<std::mutex> lock(m_connectionsMutex);
+        m_connections.erase(clientPort);
+      }
       closesocket(clientSocket);
     }
 
@@ -215,6 +221,7 @@ namespace psvr2_toolkit {
 
       switch (pHeader->type) {
         case Command_ClientPing: {
+          std::lock_guard<std::mutex> lock(m_connectionsMutex);
           if (pHeader->dataLen == 0 && m_connections.contains(clientPort)) {
             SendIpcCommand(clientSocket, Command_ServerPong); // TODO
           }
@@ -226,18 +233,22 @@ namespace psvr2_toolkit {
           response.result = HandshakeResult_Failed;
           response.ipcVersion = k_unIpcVersion; // Communicate the IPC version the server supports.
 
-          if (pHeader->dataLen == sizeof(CommandDataClientRequestHandshake_t) && !m_connections.contains(clientPort)) {
-            CommandDataClientRequestHandshake_t *pRequest = reinterpret_cast<CommandDataClientRequestHandshake_t *>(pData);
+          {
+            std::lock_guard<std::mutex> lock(m_connectionsMutex);
+            if (pHeader->dataLen == sizeof(CommandDataClientRequestHandshake_t) && !m_connections.contains(clientPort)) {
+              CommandDataClientRequestHandshake_t *pRequest = reinterpret_cast<CommandDataClientRequestHandshake_t *>(pData);
 
-            // We only want real running processes to handshake with us.
-            if (Util::IsProcessRunning(pRequest->processId)) {
-              m_connections[clientPort] = {
-                .clientAddr = clientAddr,
-                .ipcVersion = pRequest->ipcVersion,
-                .processId = pRequest->processId
-              };
+              // We only want real running processes to handshake with us.
+              if (Util::IsProcessRunning(pRequest->processId)) {
+                m_connections[clientPort] = {
+                  .clientAddr = clientAddr,
+                  .ipcVersion = pRequest->ipcVersion,
+                  .processId = pRequest->processId,
+                  .socket = clientSocket
+                };
 
-              response.result = HandshakeResult_Success;
+                response.result = HandshakeResult_Success;
+              }
             }
           }
 
@@ -246,168 +257,190 @@ namespace psvr2_toolkit {
         }
 
         case Command_ClientRequestGazeData: {
-          if (pHeader->dataLen == 0 && m_connections.contains(clientPort)) {
+          uint16_t ipcVersion = 0;
+          bool isConnected = false;
+          {
+            std::lock_guard<std::mutex> lock(m_connectionsMutex);
+            if (m_connections.contains(clientPort)) {
+              isConnected = true;
+              ipcVersion = m_connections[clientPort].ipcVersion;
+            }
+          }
 
-            if (m_doGaze && m_pGazeState) {
+          if (pHeader->dataLen == 0 && isConnected) {
+            Hmd2GazeState gazeStateCopy;
+            float leftOpenness, rightOpenness;
+            bool hasGazeState;
+            {
+              std::lock_guard<std::mutex> lock(m_gazeStateMutex);
+              hasGazeState = (m_pGazeState != nullptr);
+              if (hasGazeState) {
+                gazeStateCopy = *m_pGazeState;
+                leftOpenness = m_leftEyelidOpenness;
+                rightOpenness = m_rightEyelidOpenness;
+              }
+            }
+
+            if (m_doGaze && hasGazeState) {
               // Handle old client IPC version requests here.
-              if (m_connections[clientPort].ipcVersion == 1) {
+              if (ipcVersion == 1) {
                 CommandDataServerGazeDataResult_t response = {
                   .leftEye = {
-                    .isGazeOriginValid = m_pGazeState->leftEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeOriginValid = gazeStateCopy.leftEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeOriginMm = {
-                      .x = m_pGazeState->leftEye.gazeOriginMm.x,
-                      .y = m_pGazeState->leftEye.gazeOriginMm.y,
-                      .z = m_pGazeState->leftEye.gazeOriginMm.z,
+                      .x = gazeStateCopy.leftEye.gazeOriginMm.x,
+                      .y = gazeStateCopy.leftEye.gazeOriginMm.y,
+                      .z = gazeStateCopy.leftEye.gazeOriginMm.z,
                     },
-                    .isGazeDirValid = m_pGazeState->leftEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeDirValid = gazeStateCopy.leftEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeDirNorm {
-                      .x = m_pGazeState->leftEye.gazeDirNorm.x,
-                      .y = m_pGazeState->leftEye.gazeDirNorm.y,
-                      .z = m_pGazeState->leftEye.gazeDirNorm.z,
+                      .x = gazeStateCopy.leftEye.gazeDirNorm.x,
+                      .y = gazeStateCopy.leftEye.gazeDirNorm.y,
+                      .z = gazeStateCopy.leftEye.gazeDirNorm.z,
                     },
-                    .isPupilDiaValid = m_pGazeState->leftEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .pupilDiaMm = m_pGazeState->leftEye.pupilDiaMm,
-                    .isBlinkValid = m_pGazeState->leftEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .blink = m_pGazeState->leftEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isPupilDiaValid = gazeStateCopy.leftEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .pupilDiaMm = gazeStateCopy.leftEye.pupilDiaMm,
+                    .isBlinkValid = gazeStateCopy.leftEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .blink = gazeStateCopy.leftEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
                   },
 
                   .rightEye = {
-                    .isGazeOriginValid = m_pGazeState->rightEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeOriginValid = gazeStateCopy.rightEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeOriginMm = {
-                      .x = m_pGazeState->rightEye.gazeOriginMm.x,
-                      .y = m_pGazeState->rightEye.gazeOriginMm.y,
-                      .z = m_pGazeState->rightEye.gazeOriginMm.z,
+                      .x = gazeStateCopy.rightEye.gazeOriginMm.x,
+                      .y = gazeStateCopy.rightEye.gazeOriginMm.y,
+                      .z = gazeStateCopy.rightEye.gazeOriginMm.z,
                     },
-                    .isGazeDirValid = m_pGazeState->rightEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeDirValid = gazeStateCopy.rightEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeDirNorm {
-                      .x = m_pGazeState->rightEye.gazeDirNorm.x,
-                      .y = m_pGazeState->rightEye.gazeDirNorm.y,
-                      .z = m_pGazeState->rightEye.gazeDirNorm.z,
+                      .x = gazeStateCopy.rightEye.gazeDirNorm.x,
+                      .y = gazeStateCopy.rightEye.gazeDirNorm.y,
+                      .z = gazeStateCopy.rightEye.gazeDirNorm.z,
                     },
-                    .isPupilDiaValid = m_pGazeState->rightEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .pupilDiaMm = m_pGazeState->rightEye.pupilDiaMm,
-                    .isBlinkValid = m_pGazeState->rightEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .blink = m_pGazeState->rightEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isPupilDiaValid = gazeStateCopy.rightEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .pupilDiaMm = gazeStateCopy.rightEye.pupilDiaMm,
+                    .isBlinkValid = gazeStateCopy.rightEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .blink = gazeStateCopy.rightEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
                   }
                 };
                 SendIpcCommand(clientSocket, Command_ServerGazeDataResult, &response, sizeof(response));
-              } else if (m_connections[clientPort].ipcVersion == 2) {
+              } else if (ipcVersion == 2) {
                 CommandDataServerGazeDataResult2_t response = {
                   .leftEye = {
-                    .isGazeOriginValid = m_pGazeState->leftEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeOriginValid = gazeStateCopy.leftEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeOriginMm = {
-                      .x = m_pGazeState->leftEye.gazeOriginMm.x,
-                      .y = m_pGazeState->leftEye.gazeOriginMm.y,
-                      .z = m_pGazeState->leftEye.gazeOriginMm.z,
+                      .x = gazeStateCopy.leftEye.gazeOriginMm.x,
+                      .y = gazeStateCopy.leftEye.gazeOriginMm.y,
+                      .z = gazeStateCopy.leftEye.gazeOriginMm.z,
                     },
-                    .isGazeDirValid = m_pGazeState->leftEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeDirValid = gazeStateCopy.leftEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeDirNorm {
-                      .x = m_pGazeState->leftEye.gazeDirNorm.x,
-                      .y = m_pGazeState->leftEye.gazeDirNorm.y,
-                      .z = m_pGazeState->leftEye.gazeDirNorm.z,
+                      .x = gazeStateCopy.leftEye.gazeDirNorm.x,
+                      .y = gazeStateCopy.leftEye.gazeDirNorm.y,
+                      .z = gazeStateCopy.leftEye.gazeDirNorm.z,
                     },
-                    .isPupilDiaValid = m_pGazeState->leftEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .pupilDiaMm = m_pGazeState->leftEye.pupilDiaMm,
-                    .isBlinkValid = m_pGazeState->leftEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .blink = m_pGazeState->leftEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isPupilDiaValid = gazeStateCopy.leftEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .pupilDiaMm = gazeStateCopy.leftEye.pupilDiaMm,
+                    .isBlinkValid = gazeStateCopy.leftEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .blink = gazeStateCopy.leftEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
                     .isOpenEnabled = m_doOpenness,
-                    .open = m_doOpenness ? m_leftEyelidOpenness : 0.0f,
+                    .open = m_doOpenness ? leftOpenness : 0.0f,
                   },
 
                   .rightEye = {
-                    .isGazeOriginValid = m_pGazeState->rightEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeOriginValid = gazeStateCopy.rightEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeOriginMm = {
-                      .x = m_pGazeState->rightEye.gazeOriginMm.x,
-                      .y = m_pGazeState->rightEye.gazeOriginMm.y,
-                      .z = m_pGazeState->rightEye.gazeOriginMm.z,
+                      .x = gazeStateCopy.rightEye.gazeOriginMm.x,
+                      .y = gazeStateCopy.rightEye.gazeOriginMm.y,
+                      .z = gazeStateCopy.rightEye.gazeOriginMm.z,
                     },
-                    .isGazeDirValid = m_pGazeState->rightEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeDirValid = gazeStateCopy.rightEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeDirNorm {
-                      .x = m_pGazeState->rightEye.gazeDirNorm.x,
-                      .y = m_pGazeState->rightEye.gazeDirNorm.y,
-                      .z = m_pGazeState->rightEye.gazeDirNorm.z,
+                      .x = gazeStateCopy.rightEye.gazeDirNorm.x,
+                      .y = gazeStateCopy.rightEye.gazeDirNorm.y,
+                      .z = gazeStateCopy.rightEye.gazeDirNorm.z,
                     },
-                    .isPupilDiaValid = m_pGazeState->rightEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .pupilDiaMm = m_pGazeState->rightEye.pupilDiaMm,
-                    .isBlinkValid = m_pGazeState->rightEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .blink = m_pGazeState->rightEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isPupilDiaValid = gazeStateCopy.rightEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .pupilDiaMm = gazeStateCopy.rightEye.pupilDiaMm,
+                    .isBlinkValid = gazeStateCopy.rightEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .blink = gazeStateCopy.rightEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
                     .isOpenEnabled = m_doOpenness,
-                    .open = m_doOpenness ? m_rightEyelidOpenness : 0.0f,
+                    .open = m_doOpenness ? rightOpenness : 0.0f,
                   }
                 };
                 SendIpcCommand(clientSocket, Command_ServerGazeDataResult, &response, sizeof(response));
               } else {
                 CommandDataServerGazeDataResult3_t response = {
                   .leftEye = {
-                    .isGazeOriginValid = m_pGazeState->leftEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeOriginValid = gazeStateCopy.leftEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeOriginMm = {
-                      .x = m_pGazeState->leftEye.gazeOriginMm.x,
-                      .y = m_pGazeState->leftEye.gazeOriginMm.y,
-                      .z = m_pGazeState->leftEye.gazeOriginMm.z,
+                      .x = gazeStateCopy.leftEye.gazeOriginMm.x,
+                      .y = gazeStateCopy.leftEye.gazeOriginMm.y,
+                      .z = gazeStateCopy.leftEye.gazeOriginMm.z,
                     },
-                    .isGazeDirValid = m_pGazeState->leftEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeDirValid = gazeStateCopy.leftEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeDirNorm {
-                      .x = m_pGazeState->leftEye.gazeDirNorm.x,
-                      .y = m_pGazeState->leftEye.gazeDirNorm.y,
-                      .z = m_pGazeState->leftEye.gazeDirNorm.z,
+                      .x = gazeStateCopy.leftEye.gazeDirNorm.x,
+                      .y = gazeStateCopy.leftEye.gazeDirNorm.y,
+                      .z = gazeStateCopy.leftEye.gazeDirNorm.z,
                     },
-                    .isPupilDiaValid = m_pGazeState->leftEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .pupilDiaMm = m_pGazeState->leftEye.pupilDiaMm,
-                    .isPupilPosInSensorValid = m_pGazeState->leftEye.isPupilPosInSensorValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isPupilDiaValid = gazeStateCopy.leftEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .pupilDiaMm = gazeStateCopy.leftEye.pupilDiaMm,
+                    .isPupilPosInSensorValid = gazeStateCopy.leftEye.isPupilPosInSensorValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .pupilPosInSensor = {
-                      .x = m_pGazeState->leftEye.pupilPosInSensor.x,
-                      .y = m_pGazeState->leftEye.pupilPosInSensor.y,
+                      .x = gazeStateCopy.leftEye.pupilPosInSensor.x,
+                      .y = gazeStateCopy.leftEye.pupilPosInSensor.y,
                     },
-                    .isPosGuideValid = m_pGazeState->leftEye.isPosGuideValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isPosGuideValid = gazeStateCopy.leftEye.isPosGuideValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .posGuide = {
-                      .x = m_pGazeState->leftEye.posGuide.x,
-                      .y = m_pGazeState->leftEye.posGuide.y,
+                      .x = gazeStateCopy.leftEye.posGuide.x,
+                      .y = gazeStateCopy.leftEye.posGuide.y,
                     },
-                    .isBlinkValid = m_pGazeState->leftEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .blink = m_pGazeState->leftEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isBlinkValid = gazeStateCopy.leftEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .blink = gazeStateCopy.leftEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
                     .isOpenEnabled = m_doOpenness,
-                    .open = m_doOpenness ? m_leftEyelidOpenness : 0.0f,
+                    .open = m_doOpenness ? leftOpenness : 0.0f,
                   },
 
                   .rightEye = {
-                    .isGazeOriginValid = m_pGazeState->rightEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeOriginValid = gazeStateCopy.rightEye.isGazeOriginValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeOriginMm = {
-                      .x = m_pGazeState->rightEye.gazeOriginMm.x,
-                      .y = m_pGazeState->rightEye.gazeOriginMm.y,
-                      .z = m_pGazeState->rightEye.gazeOriginMm.z,
+                      .x = gazeStateCopy.rightEye.gazeOriginMm.x,
+                      .y = gazeStateCopy.rightEye.gazeOriginMm.y,
+                      .z = gazeStateCopy.rightEye.gazeOriginMm.z,
                     },
-                    .isGazeDirValid = m_pGazeState->rightEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isGazeDirValid = gazeStateCopy.rightEye.isGazeDirValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .gazeDirNorm {
-                      .x = m_pGazeState->rightEye.gazeDirNorm.x,
-                      .y = m_pGazeState->rightEye.gazeDirNorm.y,
-                      .z = m_pGazeState->rightEye.gazeDirNorm.z,
+                      .x = gazeStateCopy.rightEye.gazeDirNorm.x,
+                      .y = gazeStateCopy.rightEye.gazeDirNorm.y,
+                      .z = gazeStateCopy.rightEye.gazeDirNorm.z,
                     },
-                    .isPupilDiaValid = m_pGazeState->rightEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .pupilDiaMm = m_pGazeState->rightEye.pupilDiaMm,
-                    .isPupilPosInSensorValid = m_pGazeState->rightEye.isPupilPosInSensorValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isPupilDiaValid = gazeStateCopy.rightEye.isPupilDiaValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .pupilDiaMm = gazeStateCopy.rightEye.pupilDiaMm,
+                    .isPupilPosInSensorValid = gazeStateCopy.rightEye.isPupilPosInSensorValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .pupilPosInSensor = {
-                      .x = m_pGazeState->rightEye.pupilPosInSensor.x,
-                      .y = m_pGazeState->rightEye.pupilPosInSensor.y,
+                      .x = gazeStateCopy.rightEye.pupilPosInSensor.x,
+                      .y = gazeStateCopy.rightEye.pupilPosInSensor.y,
                     },
-                    .isPosGuideValid = m_pGazeState->rightEye.isPosGuideValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isPosGuideValid = gazeStateCopy.rightEye.isPosGuideValid == Hmd2Bool::HMD2_BOOL_TRUE,
                     .posGuide = {
-                      .x = m_pGazeState->rightEye.posGuide.x,
-                      .y = m_pGazeState->rightEye.posGuide.y,
+                      .x = gazeStateCopy.rightEye.posGuide.x,
+                      .y = gazeStateCopy.rightEye.posGuide.y,
                     },
-                    .isBlinkValid = m_pGazeState->rightEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
-                    .blink = m_pGazeState->rightEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .isBlinkValid = gazeStateCopy.rightEye.isBlinkValid == Hmd2Bool::HMD2_BOOL_TRUE,
+                    .blink = gazeStateCopy.rightEye.blink == Hmd2Bool::HMD2_BOOL_TRUE,
                     .isOpenEnabled = m_doOpenness,
-                    .open = m_doOpenness ? m_rightEyelidOpenness : 0.0f,
+                    .open = m_doOpenness ? rightOpenness : 0.0f,
                   }
                 };
                 SendIpcCommand(clientSocket, Command_ServerGazeDataResult, &response, sizeof(response));
               }
             } else {
               // Handle old client IPC version requests here, as well.
-              if (m_connections[clientPort].ipcVersion == 1) {
+              if (ipcVersion == 1) {
                 CommandDataServerGazeDataResult_t response = {};
                 SendIpcCommand(clientSocket, Command_ServerGazeDataResult, &response, sizeof(response));
-              } else if (m_connections[clientPort].ipcVersion == 2) {
+              } else if (ipcVersion == 2) {
                 CommandDataServerGazeDataResult2_t response = {};
                 SendIpcCommand(clientSocket, Command_ServerGazeDataResult, &response, sizeof(response));
               } else {
@@ -427,13 +460,23 @@ namespace psvr2_toolkit {
         case Command_ClientTriggerEffectMultiplePositionFeedback:
         case Command_ClientTriggerEffectSlopeFeedback:
         case Command_ClientTriggerEffectMultiplePositionVibration: {
-          if (m_connections.contains(clientPort)) {
-            pTriggerEffectManager->HandleIpcCommand(m_connections[clientPort].processId, pHeader, pData);
+          uint32_t processId = 0;
+          bool isConnected = false;
+          {
+            std::lock_guard<std::mutex> lock(m_connectionsMutex);
+            if (m_connections.contains(clientPort)) {
+              isConnected = true;
+              processId = m_connections[clientPort].processId;
+            }
+          }
+          if (isConnected) {
+            pTriggerEffectManager->HandleIpcCommand(processId, pHeader, pData);
           }
           break;
         }
 
         case Command_ClientStartGazeCalibration: {
+          std::lock_guard<std::mutex> lock(m_connectionsMutex);
           if (pHeader->dataLen == 0 && m_connections.contains(clientPort)) {
             m_calibrationActive = true;
             Util::DriverLog("[IPC_SERVER] Gaze calibration started");
@@ -442,6 +485,7 @@ namespace psvr2_toolkit {
         }
 
         case Command_ClientStopGazeCalibration: {
+          std::lock_guard<std::mutex> lock(m_connectionsMutex);
           if (pHeader->dataLen == 0 && m_connections.contains(clientPort)) {
             m_calibrationActive = false;
             LoadCalibrationFile();
@@ -451,6 +495,7 @@ namespace psvr2_toolkit {
         }
 
         case Command_ClientEnableGazeCursor: {
+          std::lock_guard<std::mutex> lock(m_connectionsMutex);
           if (pHeader->dataLen == sizeof(CommandDataClientGazeCursorControl_t) && m_connections.contains(clientPort)) {
             CommandDataClientGazeCursorControl_t *pRequest = reinterpret_cast<CommandDataClientGazeCursorControl_t *>(pData);
             m_gazeCursorEnabled = true;
@@ -466,6 +511,7 @@ namespace psvr2_toolkit {
         }
 
         case Command_ClientDisableGazeCursor: {
+          std::lock_guard<std::mutex> lock(m_connectionsMutex);
           if (pHeader->dataLen == 0 && m_connections.contains(clientPort)) {
             m_gazeCursorEnabled = false;
             Util::DriverLog("[IPC_SERVER] Gaze cursor disabled");
@@ -546,15 +592,11 @@ namespace psvr2_toolkit {
           auto timeSinceLastNotification = std::chrono::duration_cast<std::chrono::seconds>(now - lastNotificationTime).count();
 
           if (timeSinceLastNotification >= NOTIFICATION_COOLDOWN) {
-            // Send notification to all connected clients
-            for (const auto& [port, conn] : m_connections) {
-              sockaddr_in clientAddr = conn.clientAddr;
-              SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-              if (clientSocket != INVALID_SOCKET) {
-                if (connect(clientSocket, (sockaddr*)&clientAddr, sizeof(clientAddr)) == 0) {
-                  SendIpcCommand(clientSocket, Command_ServerRecalibrationNeeded);
-                  closesocket(clientSocket);
-                }
+            // Send notification to all connected clients via their existing connections
+            {
+              std::lock_guard<std::mutex> lock(m_connectionsMutex);
+              for (const auto& [port, conn] : m_connections) {
+                SendIpcCommand(conn.socket, Command_ServerRecalibrationNeeded);
               }
             }
 
@@ -572,9 +614,7 @@ namespace psvr2_toolkit {
     }
 
     void IpcServer::SendIpcCommand(SOCKET clientSocket, ECommandType type, void *pData, int dataLen) {
-      // Reduce the allocations by making the buffer static.
-      // I'm sure this isn't thread-safe, but we only have one receive thread anyways.
-      static char pBuffer[1024] = {};
+      char pBuffer[1024] = {};
 
       int actualDataLen = pData ? dataLen : 0;
       int actualBufferLen = sizeof(CommandHeader_t) + actualDataLen;
@@ -582,7 +622,9 @@ namespace psvr2_toolkit {
       CommandHeader_t *pHeader = reinterpret_cast<CommandHeader_t *>(pBuffer);
       pHeader->type = type;
       pHeader->dataLen = actualDataLen;
-      memcpy(pBuffer + sizeof(CommandHeader_t), pData, actualDataLen);
+      if (pData && actualDataLen > 0) {
+        memcpy(pBuffer + sizeof(CommandHeader_t), pData, actualDataLen);
+      }
 
       send(clientSocket, pBuffer, actualBufferLen, 0);
     }

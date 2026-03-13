@@ -208,14 +208,16 @@ namespace PSVR2Toolkit.CAPI {
                         if ( m_serverIpcVersion == 1 ) {
                             if ( header.dataLen == Marshal.SizeOf<CommandDataServerGazeDataResult>() ) {
                                 CommandDataServerGazeDataResult response = ByteArrayToStructure<CommandDataServerGazeDataResult>(pBuffer, Marshal.SizeOf<CommandHeader>());
-                                m_lastGazeState = UpgradeGazeDataResult(response);
-
+                                lock ( m_gazeStateLock ) {
+                                    m_lastGazeState = UpgradeGazeDataResult(response);
+                                }
                             }
                         } else {
                             if ( header.dataLen == Marshal.SizeOf<CommandDataServerGazeDataResult2>() ) {
                                 CommandDataServerGazeDataResult2 response = ByteArrayToStructure<CommandDataServerGazeDataResult2>(pBuffer, Marshal.SizeOf<CommandHeader>());
-                                m_lastGazeState = response;
-
+                                lock ( m_gazeStateLock ) {
+                                    m_lastGazeState = response;
+                                }
                             }
                         }
                         break;
@@ -299,7 +301,9 @@ namespace PSVR2Toolkit.CAPI {
                 return new CommandDataServerGazeDataResult2();
             }
 
-            return m_lastGazeState ?? new CommandDataServerGazeDataResult2();
+            lock ( m_gazeStateLock ) {
+                return m_lastGazeState ?? new CommandDataServerGazeDataResult2();
+            }
         }
 
         public void TriggerEffectDisable(EVRControllerType controllerType) {
