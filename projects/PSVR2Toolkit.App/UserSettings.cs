@@ -50,8 +50,12 @@ namespace PSVR2Toolkit.App
         {
             try
             {
+                var path = AppConstants.SettingsPath;
+                var dir = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
                 var json = JsonConvert.SerializeObject(this, Formatting.Indented);
-                File.WriteAllText(AppConstants.SettingsPath, json);
+                File.WriteAllText(path, json);
             }
             catch (Exception ex)
             {
