@@ -240,7 +240,21 @@
 
                     <StackPanel Grid.Row="2" Margin="0,0,0,10">
                         <Button x:Name="LaunchCalibrationButton" Content="Launch Calibration Tool" Padding="15,8" FontSize="14" FontWeight="Bold" Click="LaunchCalibrationButton_Click" Margin="0,0,0,10"/>
-                        <Button x:Name="ClearCalibrationButton" Content="Clear Calibration" Padding="10,5" Click="ClearCalibrationButton_Click"/>
+                        <Button x:Name="ClearCalibrationButton" Content="Clear Calibration" Padding="10,5" Click="ClearCalibrationButton_Click" Margin="0,0,0,15"/>
+
+                        <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" CornerRadius="4" Background="#F0F8FF">
+                            <StackPanel>
+                                <TextBlock FontWeight="Bold" Margin="0,0,0,5">Eye Tracking Cursor Control</TextBlock>
+                                <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" Foreground="#666666">
+                                    Use your eye gaze to control the Windows mouse cursor. Useful for desktop VR and accessibility.
+                                </TextBlock>
+                                <CheckBox x:Name="GazeCursorCheckBox" Content="Enable Gaze Cursor" Margin="0,0,0,10" Checked="GazeCursorCheckBox_Checked" Unchecked="GazeCursorCheckBox_Unchecked"/>
+                                <TextBlock Text="Sensitivity:" Margin="0,5,0,2"/>
+                                <Slider x:Name="CursorSensitivitySlider" Minimum="0.1" Maximum="5.0" Value="1.0" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0,0,0,5" ValueChanged="CursorSettings_Changed"/>
+                                <TextBlock Text="Smoothing:" Margin="0,5,0,2"/>
+                                <Slider x:Name="CursorSmoothingSlider" Minimum="0.0" Maximum="1.0" Value="0.3" TickFrequency="0.05" IsSnapToTickEnabled="True" Margin="0,0,0,5" ValueChanged="CursorSettings_Changed"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
                     <Border Grid.Row="3" BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" CornerRadius="4">

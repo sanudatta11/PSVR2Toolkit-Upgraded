@@ -24,6 +24,12 @@ namespace psvr2_toolkit {
       , m_calibrationActive(false)
       , m_gazeOffsetX(0.0f)
       , m_gazeOffsetY(0.0f)
+      , m_gazeCursorEnabled(false)
+      , m_cursorSensitivity(1.0f)
+      , m_cursorSmoothing(0.3f)
+      , m_cursorDeadzone(0.05f)
+      , m_smoothedGazeX(0.0f)
+      , m_smoothedGazeY(0.0f)
     {}
 
     IpcServer *IpcServer::Instance() {
@@ -438,7 +444,72 @@ namespace psvr2_toolkit {
           }
           break;
         }
+
+        case Command_ClientEnableGazeCursor: {
+          if (pHeader->dataLen == sizeof(CommandDataClientGazeCursorControl_t) && m_connections.contains(clientPort)) {
+            CommandDataClientGazeCursorControl_t *pRequest = reinterpret_cast<CommandDataClientGazeCursorControl_t *>(pData);
+            m_gazeCursorEnabled = true;
+            m_cursorSensitivity = pRequest->sensitivity;
+            m_cursorSmoothing = pRequest->smoothing;
+            m_cursorDeadzone = pRequest->deadzone;
+            m_smoothedGazeX = 0.0f;
+            m_smoothedGazeY = 0.0f;
+            Util::DriverLog("[IPC_SERVER] Gaze cursor enabled (sensitivity: {}, smoothing: {}, deadzone: {})",
+                           m_cursorSensitivity, m_cursorSmoothing, m_cursorDeadzone);
+          }
+          break;
+        }
+
+        case Command_ClientDisableGazeCursor: {
+          if (pHeader->dataLen == 0 && m_connections.contains(clientPort)) {
+            m_gazeCursorEnabled = false;
+            Util::DriverLog("[IPC_SERVER] Gaze cursor disabled");
+          }
+          break;
+        }
       }
+    }
+
+    void IpcServer::UpdateGazeCursor(float gazeX, float gazeY) {
+      if (!m_gazeCursorEnabled) {
+        return;
+      }
+
+      // Apply deadzone - ignore small movements near center
+      float magnitude = sqrtf(gazeX * gazeX + gazeY * gazeY);
+      if (magnitude < m_cursorDeadzone) {
+        return;
+      }
+
+      // Apply smoothing using exponential moving average
+      m_smoothedGazeX = m_smoothedGazeX * m_cursorSmoothing + gazeX * (1.0f - m_cursorSmoothing);
+      m_smoothedGazeY = m_smoothedGazeY * m_cursorSmoothing + gazeY * (1.0f - m_cursorSmoothing);
+
+      // Get current screen dimensions
+      int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+      int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+      // Get current cursor position
+      POINT cursorPos;
+      if (!GetCursorPos(&cursorPos)) {
+        return;
+      }
+
+      // Convert gaze direction to screen delta
+      // Gaze X/Y are normalized direction vectors, scale by sensitivity
+      float deltaX = m_smoothedGazeX * m_cursorSensitivity * 500.0f;  // Scale factor for reasonable movement
+      float deltaY = -m_smoothedGazeY * m_cursorSensitivity * 500.0f; // Invert Y for screen coordinates
+
+      // Calculate new cursor position
+      int newX = cursorPos.x + static_cast<int>(deltaX);
+      int newY = cursorPos.y + static_cast<int>(deltaY);
+
+      // Clamp to screen bounds
+      newX = max(0, min(newX, screenWidth - 1));
+      newY = max(0, min(newY, screenHeight - 1));
+
+      // Move cursor
+      SetCursorPos(newX, newY);
     }
 
     void IpcServer::SendIpcCommand(SOCKET clientSocket, ECommandType type, void *pData, int dataLen) {

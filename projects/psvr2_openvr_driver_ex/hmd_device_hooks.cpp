@@ -163,6 +163,9 @@ namespace psvr2_toolkit {
       eyeTrackingData.vGazeOrigin = vr::HmdVector3_t { -origin.x / 1000.0f, origin.y / 1000.0f, -origin.z / 1000.0f };
       eyeTrackingData.vGazeTarget = vr::HmdVector3_t { -correctedX, correctedY, -correctedZ };
 
+      // Update gaze cursor if enabled
+      pIpcServer->UpdateGazeCursor(correctedX, correctedY);
+
       int64_t hmdToHostOffset;
 
       CaesarManager__getIMUTimestampOffset(CaesarManager__getInstance(), &hmdToHostOffset);

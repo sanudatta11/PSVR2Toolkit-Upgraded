@@ -497,4 +497,65 @@ public partial class MainWindow : Window
             CalibrationOffsetsLabel.Text = "Error reading status";
         }
     }
+
+    private void GazeCursorCheckBox_Checked(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var ipcClient = IpcClient.Instance();
+            if (ipcClient != null && ipcClient.IsConnected)
+            {
+                float sensitivity = (float)CursorSensitivitySlider.Value;
+                float smoothing = (float)CursorSmoothingSlider.Value;
+                float deadzone = 0.05f; // Fixed deadzone value
+
+                ipcClient.EnableGazeCursor(sensitivity, smoothing, deadzone);
+                Logger.Info($"Gaze cursor enabled (sensitivity: {sensitivity}, smoothing: {smoothing})");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Failed to enable gaze cursor: {ex.Message}", ex);
+            MessageBox.Show($"Failed to enable gaze cursor: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            GazeCursorCheckBox.IsChecked = false;
+        }
+    }
+
+    private void GazeCursorCheckBox_Unchecked(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var ipcClient = IpcClient.Instance();
+            if (ipcClient != null && ipcClient.IsConnected)
+            {
+                ipcClient.DisableGazeCursor();
+                Logger.Info("Gaze cursor disabled");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Failed to disable gaze cursor: {ex.Message}", ex);
+        }
+    }
+
+    private void CursorSettings_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        try
+        {
+            var ipcClient = IpcClient.Instance();
+            // Only update if cursor is currently enabled
+            if (GazeCursorCheckBox != null && GazeCursorCheckBox.IsChecked == true && ipcClient != null && ipcClient.IsConnected)
+            {
+                float sensitivity = (float)CursorSensitivitySlider.Value;
+                float smoothing = (float)CursorSmoothingSlider.Value;
+                float deadzone = 0.05f;
+
+                ipcClient.EnableGazeCursor(sensitivity, smoothing, deadzone);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Failed to update cursor settings: {ex.Message}", ex);
+        }
+    }
 }

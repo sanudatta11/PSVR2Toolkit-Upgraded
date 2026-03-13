@@ -28,6 +28,7 @@ namespace psvr2_toolkit {
 
       float GetGazeOffsetX() const { return m_gazeOffsetX; }
       float GetGazeOffsetY() const { return m_gazeOffsetY; }
+      void UpdateGazeCursor(float gazeX, float gazeY);
 
     private:
       void LoadCalibrationFile();
@@ -55,6 +56,13 @@ namespace psvr2_toolkit {
       bool m_calibrationActive;
       float m_gazeOffsetX;
       float m_gazeOffsetY;
+
+      bool m_gazeCursorEnabled;
+      float m_cursorSensitivity;
+      float m_cursorSmoothing;
+      float m_cursorDeadzone;
+      float m_smoothedGazeX;
+      float m_smoothedGazeY;
 
       void ReceiveLoop();
       void HandleClient(SOCKET clientSocket, SOCKADDR_IN clientAddr);

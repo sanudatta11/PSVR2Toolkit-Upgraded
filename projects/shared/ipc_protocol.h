@@ -30,6 +30,9 @@ namespace psvr2_toolkit {
 
       Command_ClientStartGazeCalibration, // No command data.
       Command_ClientStopGazeCalibration, // No command data.
+
+      Command_ClientEnableGazeCursor, // CommandDataClientGazeCursorControl_t
+      Command_ClientDisableGazeCursor, // No command data.
     };
 
     enum EHandshakeResultType : uint8_t {
@@ -181,6 +184,12 @@ namespace psvr2_toolkit {
       EVRControllerType controllerType;
       uint8_t frequency;
       uint8_t amplitude[k_unTriggerEffectControlPoint];
+    };
+
+    struct CommandDataClientGazeCursorControl_t {
+      float sensitivity;  // Cursor movement sensitivity (0.1 - 5.0, default 1.0)
+      float smoothing;    // Smoothing factor (0.0 - 1.0, default 0.3)
+      float deadzone;     // Center deadzone radius (0.0 - 0.5, default 0.05)
     };
 
     struct CommandHeader_t {

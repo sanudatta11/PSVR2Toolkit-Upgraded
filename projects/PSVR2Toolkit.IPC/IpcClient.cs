@@ -397,5 +397,26 @@ namespace PSVR2Toolkit.CAPI {
 
             SendIpcCommand(ECommandType.ClientStopGazeCalibration);
         }
+
+        public void EnableGazeCursor(float sensitivity = 1.0f, float smoothing = 0.3f, float deadzone = 0.05f) {
+            if ( !m_running ) {
+                return;
+            }
+
+            CommandDataClientGazeCursorControl cursorControl = new CommandDataClientGazeCursorControl() {
+                sensitivity = sensitivity,
+                smoothing = smoothing,
+                deadzone = deadzone,
+            };
+            SendIpcCommand(ECommandType.ClientEnableGazeCursor, cursorControl);
+        }
+
+        public void DisableGazeCursor() {
+            if ( !m_running ) {
+                return;
+            }
+
+            SendIpcCommand(ECommandType.ClientDisableGazeCursor);
+        }
     }
 }

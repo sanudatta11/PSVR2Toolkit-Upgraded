@@ -21,6 +21,9 @@ namespace PSVR2Toolkit.CAPI {
 
         ClientStartGazeCalibration, // No command data.
         ClientStopGazeCalibration, // No command data.
+
+        ClientEnableGazeCursor, // CommandDataClientGazeCursorControl
+        ClientDisableGazeCursor, // No command data.
     };
 
     public enum EHandshakeResult : byte {
@@ -164,5 +167,12 @@ namespace PSVR2Toolkit.CAPI {
         public byte frequency;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10)]
         public byte[] amplitude;
+    };
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct CommandDataClientGazeCursorControl {
+        public float sensitivity;  // Cursor movement sensitivity (0.1 - 5.0, default 1.0)
+        public float smoothing;    // Smoothing factor (0.0 - 1.0, default 0.3)
+        public float deadzone;     // Center deadzone radius (0.0 - 0.5, default 0.05)
     };
 }
