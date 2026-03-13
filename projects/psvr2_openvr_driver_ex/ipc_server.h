@@ -8,6 +8,7 @@
 #include <chrono>
 #include <cstdint>
 #include <map>
+#include <mutex>
 #include <thread>
 
 namespace psvr2_toolkit {
@@ -38,6 +39,7 @@ namespace psvr2_toolkit {
         sockaddr_in clientAddr;
         uint16_t ipcVersion;
         uint32_t processId;
+        SOCKET socket;
       };
 
       static IpcServer *m_pInstance;
@@ -50,10 +52,12 @@ namespace psvr2_toolkit {
       sockaddr_in m_serverAddr;
       std::thread m_receiveThread;
       std::map<uint16_t, ConnectionInfo_t> m_connections;
+      std::mutex m_connectionsMutex;
 
       Hmd2GazeState *m_pGazeState;
       float m_leftEyelidOpenness;
       float m_rightEyelidOpenness;
+      std::mutex m_gazeStateMutex;
 
       bool m_calibrationActive;
       float m_gazeOffsetX;
