@@ -76,9 +76,31 @@
                         </ItemsControl>
                     </ScrollViewer>
 
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                        <TextBlock x:Name="HealthSummary" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <Button x:Name="RunHealthCheckButton" Content="Run Health Check" Padding="15,5" Click="RunHealthCheckButton_Click"/>
+                    <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                        <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" CornerRadius="4" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock FontWeight="Bold" Margin="0,0,0,5">Controller Battery Status</TextBlock>
+                                <TextBlock x:Name="BatteryStatusText" Text="Battery monitoring requires OpenVR.NET package" Foreground="#666666" FontSize="11" Margin="0,0,0,5"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,5,0">
+                                        <TextBlock Text="Left Controller:" FontWeight="Bold" FontSize="11"/>
+                                        <TextBlock x:Name="LeftBatteryText" Text="N/A" FontSize="12"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="5,0,0,0">
+                                        <TextBlock Text="Right Controller:" FontWeight="Bold" FontSize="11"/>
+                                        <TextBlock x:Name="RightBatteryText" Text="N/A" FontSize="12"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock x:Name="HealthSummary" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <Button Content="Run Health Check" Padding="10,5" Click="RunHealthCheckButton_Click"/>
+                        </StackPanel>
                     </StackPanel>
                 </Grid>
             </TabItem>

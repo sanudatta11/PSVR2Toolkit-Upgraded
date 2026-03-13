@@ -473,28 +473,6 @@ namespace psvr2_toolkit {
           break;
         }
 
-        case Command_ClientRequestBatteryLevel: {
-          if (pHeader->dataLen == sizeof(CommandDataClientRequestBatteryLevel_t) && m_connections.contains(clientPort)) {
-            CommandDataClientRequestBatteryLevel_t *pRequest = reinterpret_cast<CommandDataClientRequestBatteryLevel_t *>(pData);
-
-            // Query battery level from trigger effect manager
-            static auto* pTriggerManager = TriggerEffectManager::Instance();
-            int batteryLevel = -1;
-            if (pTriggerManager && pTriggerManager->Initialized()) {
-              batteryLevel = pTriggerManager->GetControllerBatteryLevel(pRequest->controllerType);
-            }
-
-            // Send response
-            CommandDataServerBatteryLevelResult_t response = {};
-            response.controllerType = pRequest->controllerType;
-            response.batteryLevel = static_cast<int8_t>(batteryLevel);
-
-            SendIpcCommand(clientSocket, Command_ServerBatteryLevelResult, &response, sizeof(response));
-            Util::DriverLog("[IPC_SERVER] Battery level query: controller={}, level={}",
-                           (int)pRequest->controllerType, batteryLevel);
-          }
-          break;
-        }
       }
     }
 

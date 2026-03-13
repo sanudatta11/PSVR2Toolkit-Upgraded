@@ -14,7 +14,9 @@ public partial class MainWindow : Window
 {
     private readonly HealthCheckService healthCheckService;
     private readonly TriggerProfileService triggerProfileService;
+    private readonly BatteryMonitorService batteryMonitorService;
     private readonly DispatcherTimer gazeUpdateTimer;
+    private readonly DispatcherTimer batteryUpdateTimer;
     private bool gazeUpdatePaused = false;
     private bool isUpdatingGaze = false;
     private CancellationTokenSource? gazeCancellationTokenSource;
@@ -26,6 +28,7 @@ public partial class MainWindow : Window
 
         healthCheckService = new HealthCheckService();
         triggerProfileService = new TriggerProfileService();
+        batteryMonitorService = new BatteryMonitorService();
 
         // Set window title with version
         Title = $"{AppConstants.APP_NAME} v{AppConstants.APP_VERSION}";
@@ -38,6 +41,14 @@ public partial class MainWindow : Window
         gazeUpdateTimer.Tick += GazeUpdateTimer_Tick;
         gazeUpdateTimer.Start();
 
+        // Initialize battery update timer (update every 30 seconds)
+        batteryUpdateTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(30)
+        };
+        batteryUpdateTimer.Tick += BatteryUpdateTimer_Tick;
+        batteryUpdateTimer.Start();
+
         gazeCancellationTokenSource = new CancellationTokenSource();
 
         // Load trigger profiles
@@ -48,6 +59,9 @@ public partial class MainWindow : Window
 
         // Refresh calibration status
         RefreshCalibrationStatus();
+
+        // Initial battery update
+        UpdateBatteryStatus();
 
         // Subscribe to recalibration notification
         var ipcClient = IpcClient.Instance();
@@ -713,5 +727,65 @@ public class RecalibrationDialog : Window
         grid.Children.Add(buttonPanel);
 
         Content = grid;
+    }
+}
+
+// MainWindow battery monitoring methods
+public partial class MainWindow
+{
+    private void BatteryUpdateTimer_Tick(object? sender, EventArgs e)
+    {
+        UpdateBatteryStatus();
+    }
+
+    private void UpdateBatteryStatus()
+    {
+        try
+        {
+            if (!batteryMonitorService.IsOpenVRAvailable())
+            {
+                BatteryStatusText.Text = "OpenVR not available - start SteamVR to see battery levels";
+                LeftBatteryText.Text = "N/A";
+                RightBatteryText.Text = "N/A";
+                return;
+            }
+
+            var leftBattery = batteryMonitorService.GetLeftControllerBattery();
+            var rightBattery = batteryMonitorService.GetRightControllerBattery();
+
+            // Update status text
+            BatteryStatusText.Text = "Battery levels updated every 30 seconds";
+
+            // Update left controller
+            if (leftBattery.IsConnected)
+            {
+                string chargingIndicator = leftBattery.IsCharging ? " ⚡" : "";
+                LeftBatteryText.Text = leftBattery.BatteryLevel >= 0
+                    ? $"{leftBattery.BatteryLevel}%{chargingIndicator}"
+                    : "Unknown";
+            }
+            else
+            {
+                LeftBatteryText.Text = "Not Connected";
+            }
+
+            // Update right controller
+            if (rightBattery.IsConnected)
+            {
+                string chargingIndicator = rightBattery.IsCharging ? " ⚡" : "";
+                RightBatteryText.Text = rightBattery.BatteryLevel >= 0
+                    ? $"{rightBattery.BatteryLevel}%{chargingIndicator}"
+                    : "Unknown";
+            }
+            else
+            {
+                RightBatteryText.Text = "Not Connected";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Failed to update battery status: {ex.Message}", ex);
+            BatteryStatusText.Text = "Error querying battery levels";
+        }
     }
 }

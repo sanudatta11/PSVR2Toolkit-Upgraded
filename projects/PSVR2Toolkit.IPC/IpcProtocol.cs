@@ -26,9 +26,6 @@ namespace PSVR2Toolkit.CAPI {
         ClientDisableGazeCursor, // No command data.
 
         ServerRecalibrationNeeded, // No command data - notification from server
-
-        ClientRequestBatteryLevel, // CommandDataClientRequestBatteryLevel
-        ServerBatteryLevelResult, // CommandDataServerBatteryLevelResult
     };
 
     public enum EHandshakeResult : byte {
@@ -179,16 +176,5 @@ namespace PSVR2Toolkit.CAPI {
         public float sensitivity;  // Cursor movement sensitivity (0.1 - 5.0, default 1.0)
         public float smoothing;    // Smoothing factor (0.0 - 1.0, default 0.3)
         public float deadzone;     // Center deadzone radius (0.0 - 0.5, default 0.05)
-    };
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct CommandDataClientRequestBatteryLevel {
-        public EVRControllerType controllerType;
-    };
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct CommandDataServerBatteryLevelResult {
-        public EVRControllerType controllerType;
-        public sbyte batteryLevel;  // 0-100 percentage, or -1 if unavailable
     };
 }

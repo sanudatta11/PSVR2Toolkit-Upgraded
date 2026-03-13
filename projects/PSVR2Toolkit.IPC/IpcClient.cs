@@ -425,20 +425,5 @@ namespace PSVR2Toolkit.CAPI {
 
             SendIpcCommand(ECommandType.ClientDisableGazeCursor);
         }
-
-        public int RequestBatteryLevel(EVRControllerType controllerType) {
-            if ( !m_running ) {
-                return -1;
-            }
-
-            CommandDataClientRequestBatteryLevel request = new CommandDataClientRequestBatteryLevel() {
-                controllerType = controllerType,
-            };
-            SendIpcCommand(ECommandType.ClientRequestBatteryLevel, request);
-
-            // Battery level will be received asynchronously via ServerBatteryLevelResult
-            // For now, return -1 to indicate async operation
-            return -1;
-        }
     }
 }

@@ -16,16 +16,8 @@ namespace psvr2_toolkit {
     char unk2[8];
   };
 
-  // Controller state structure (reverse engineered)
-  struct ScePadControllerInformation {
-    uint8_t connected;
-    uint8_t batteryLevel;  // 0-100 percentage
-    uint8_t padding[30];
-  };
-
   AstonManager_t *(*getAstonManager)();
   int (*scePadSetTriggerEffect)(int handle, ScePadTriggerEffectParam *param);
-  int (*scePadGetControllerInformation)(int handle, ScePadControllerInformation *info);
 
   TriggerEffectManager *TriggerEffectManager::m_pInstance = nullptr;
 
@@ -54,11 +46,6 @@ namespace psvr2_toolkit {
 
     getAstonManager = decltype(getAstonManager)(pHmdDriverLoader->GetBaseAddress() + 0x1189D0);
     scePadSetTriggerEffect = decltype(scePadSetTriggerEffect)(pHmdDriverLoader->GetBaseAddress() + 0x1BF060);
-
-    // Battery query function - offset estimated based on libpad API patterns
-    // NOTE: This offset may need adjustment based on hardware testing
-    // Common offsets near scePadSetTriggerEffect: +0x100 to +0x500
-    scePadGetControllerInformation = decltype(scePadGetControllerInformation)(pHmdDriverLoader->GetBaseAddress() + 0x1BF200);
 
     m_initialized = true;
   }
@@ -185,42 +172,6 @@ namespace psvr2_toolkit {
         }
       }
     }
-  }
-
-  int TriggerEffectManager::GetControllerBatteryLevel(ipc::EVRControllerType controllerType) {
-    if (!m_initialized) {
-      return -1;
-    }
-
-    static AstonManager_t *pAstonManager = getAstonManager();
-    if (!pAstonManager) {
-      return -1;
-    }
-
-    int handle = -1;
-
-    // Get the appropriate controller handle
-    if (controllerType == ipc::VRController_Left) {
-      handle = pAstonManager->contexts[1]->handle;
-    } else if (controllerType == ipc::VRController_Right) {
-      handle = pAstonManager->contexts[0]->handle;
-    } else {
-      return -1; // Both not supported for single query
-    }
-
-    if (handle < 0) {
-      return -1; // Controller not connected
-    }
-
-    // Query battery information
-    ScePadControllerInformation info = {};
-    int result = scePadGetControllerInformation(handle, &info);
-
-    if (result == 0 && info.connected) {
-      return static_cast<int>(info.batteryLevel);
-    }
-
-    return -1; // Query failed or controller disconnected
   }
 
 } // psvr2_toolkit

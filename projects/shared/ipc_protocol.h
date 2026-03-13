@@ -35,9 +35,6 @@ namespace psvr2_toolkit {
       Command_ClientDisableGazeCursor, // No command data.
 
       Command_ServerRecalibrationNeeded, // No command data - notification from server to client
-
-      Command_ClientRequestBatteryLevel, // CommandDataClientRequestBatteryLevel_t
-      Command_ServerBatteryLevelResult, // CommandDataServerBatteryLevelResult_t
     };
 
     enum EHandshakeResultType : uint8_t {
@@ -195,15 +192,6 @@ namespace psvr2_toolkit {
       float sensitivity;  // Cursor movement sensitivity (0.1 - 5.0, default 1.0)
       float smoothing;    // Smoothing factor (0.0 - 1.0, default 0.3)
       float deadzone;     // Center deadzone radius (0.0 - 0.5, default 0.05)
-    };
-
-    struct CommandDataClientRequestBatteryLevel_t {
-      EVRControllerType controllerType;
-    };
-
-    struct CommandDataServerBatteryLevelResult_t {
-      EVRControllerType controllerType;
-      int8_t batteryLevel;  // 0-100 percentage, or -1 if unavailable
     };
 
     struct CommandHeader_t {

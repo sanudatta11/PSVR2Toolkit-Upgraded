@@ -16,9 +16,6 @@ namespace psvr2_toolkit {
 
     void HandleIpcCommand(uint32_t processId, ipc::CommandHeader_t *pHeader, void *pData);
 
-    // Battery level query (0-100, or -1 if unavailable)
-    int GetControllerBatteryLevel(ipc::EVRControllerType controllerType);
-
   private:
     static psvr2_toolkit::TriggerEffectManager *m_pInstance;
 
