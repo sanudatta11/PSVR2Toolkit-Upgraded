@@ -166,6 +166,9 @@ namespace psvr2_toolkit {
       // Update gaze cursor if enabled
       pIpcServer->UpdateGazeCursor(correctedX, correctedY);
 
+      // Check for calibration drift
+      pIpcServer->CheckGazeDrift(correctedX, correctedY);
+
       int64_t hmdToHostOffset;
 
       CaesarManager__getIMUTimestampOffset(CaesarManager__getInstance(), &hmdToHostOffset);

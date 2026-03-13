@@ -33,6 +33,8 @@ namespace psvr2_toolkit {
 
       Command_ClientEnableGazeCursor, // CommandDataClientGazeCursorControl_t
       Command_ClientDisableGazeCursor, // No command data.
+
+      Command_ServerRecalibrationNeeded, // No command data - notification from server to client
     };
 
     enum EHandshakeResultType : uint8_t {

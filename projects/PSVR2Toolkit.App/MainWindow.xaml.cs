@@ -18,6 +18,7 @@ public partial class MainWindow : Window
     private bool gazeUpdatePaused = false;
     private bool isUpdatingGaze = false;
     private CancellationTokenSource? gazeCancellationTokenSource;
+    private bool ignoreRecalibrationThisSession = false;
 
     public MainWindow()
     {
@@ -47,6 +48,13 @@ public partial class MainWindow : Window
 
         // Refresh calibration status
         RefreshCalibrationStatus();
+
+        // Subscribe to recalibration notification
+        var ipcClient = IpcClient.Instance();
+        if (ipcClient != null)
+        {
+            ipcClient.RecalibrationNeeded += OnRecalibrationNeeded;
+        }
 
         Logger.Info($"{AppConstants.APP_NAME} v{AppConstants.APP_VERSION} started");
     }
@@ -557,5 +565,153 @@ public partial class MainWindow : Window
         {
             Logger.Error($"Failed to update cursor settings: {ex.Message}", ex);
         }
+    }
+
+    private void OnRecalibrationNeeded(object sender, EventArgs e)
+    {
+        try
+        {
+            // Check if user wants to ignore notifications this session
+            if (ignoreRecalibrationThisSession)
+            {
+                Logger.Info("Recalibration notification suppressed (user chose to ignore this session)");
+                return;
+            }
+
+            Dispatcher.Invoke(() =>
+            {
+                var dialog = new RecalibrationDialog();
+                var result = dialog.ShowDialog();
+
+                if (result == true)
+                {
+                    switch (dialog.UserChoice)
+                    {
+                        case RecalibrationChoice.CalibrateNow:
+                            // Auto-launch calibration tool
+                            LaunchCalibrationButton_Click(this, new RoutedEventArgs());
+                            Logger.Info("User chose to calibrate now");
+                            break;
+
+                        case RecalibrationChoice.IgnoreSession:
+                            ignoreRecalibrationThisSession = true;
+                            Logger.Info("User chose to ignore recalibration notifications this session");
+                            break;
+
+                        case RecalibrationChoice.RemindLater:
+                            Logger.Info("User chose to be reminded later");
+                            break;
+                    }
+                }
+            });
+
+            Logger.Info("Recalibration notification displayed to user");
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Failed to handle recalibration notification: {ex.Message}", ex);
+        }
+    }
+}
+
+public enum RecalibrationChoice
+{
+    CalibrateNow,
+    RemindLater,
+    IgnoreSession
+}
+
+public class RecalibrationDialog : Window
+{
+    public RecalibrationChoice UserChoice { get; private set; }
+
+    public RecalibrationDialog()
+    {
+        Title = "Recalibration Recommended";
+        Width = 450;
+        Height = 250;
+        WindowStartupLocation = WindowStartupLocation.CenterScreen;
+        ResizeMode = ResizeMode.NoResize;
+
+        var grid = new System.Windows.Controls.Grid { Margin = new Thickness(20) };
+        grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new System.Windows.Controls.RowDefinition { Height = GridLength.Auto });
+
+        var messagePanel = new System.Windows.Controls.StackPanel();
+
+        var titleBlock = new System.Windows.Controls.TextBlock
+        {
+            Text = "Eye Tracking Calibration Drift Detected",
+            FontSize = 14,
+            FontWeight = FontWeights.Bold,
+            Margin = new Thickness(0, 0, 0, 15)
+        };
+        messagePanel.Children.Add(titleBlock);
+
+        var messageBlock = new System.Windows.Controls.TextBlock
+        {
+            Text = "Your gaze accuracy may have decreased over time.\n\n" +
+                   "Recalibration takes about 1-2 minutes and will improve eye tracking accuracy.\n\n" +
+                   "What would you like to do?",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        messagePanel.Children.Add(messageBlock);
+
+        System.Windows.Controls.Grid.SetRow(messagePanel, 0);
+        grid.Children.Add(messagePanel);
+
+        var buttonPanel = new System.Windows.Controls.StackPanel
+        {
+            Orientation = System.Windows.Controls.Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+
+        var calibrateButton = new System.Windows.Controls.Button
+        {
+            Content = "Calibrate Now",
+            Padding = new Thickness(15, 5, 15, 5),
+            Margin = new Thickness(0, 0, 10, 0),
+            IsDefault = true
+        };
+        calibrateButton.Click += (s, e) =>
+        {
+            UserChoice = RecalibrationChoice.CalibrateNow;
+            DialogResult = true;
+            Close();
+        };
+        buttonPanel.Children.Add(calibrateButton);
+
+        var remindButton = new System.Windows.Controls.Button
+        {
+            Content = "Remind Me Later",
+            Padding = new Thickness(15, 5, 15, 5),
+            Margin = new Thickness(0, 0, 10, 0)
+        };
+        remindButton.Click += (s, e) =>
+        {
+            UserChoice = RecalibrationChoice.RemindLater;
+            DialogResult = true;
+            Close();
+        };
+        buttonPanel.Children.Add(remindButton);
+
+        var ignoreButton = new System.Windows.Controls.Button
+        {
+            Content = "Ignore This Session",
+            Padding = new Thickness(15, 5, 15, 5)
+        };
+        ignoreButton.Click += (s, e) =>
+        {
+            UserChoice = RecalibrationChoice.IgnoreSession;
+            DialogResult = true;
+            Close();
+        };
+        buttonPanel.Children.Add(ignoreButton);
+
+        System.Windows.Controls.Grid.SetRow(buttonPanel, 1);
+        grid.Children.Add(buttonPanel);
+
+        Content = grid;
     }
 }

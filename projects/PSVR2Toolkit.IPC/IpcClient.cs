@@ -29,6 +29,8 @@ namespace PSVR2Toolkit.CAPI {
         public ushort ServerIpcVersion => m_serverIpcVersion;
         public bool IsConnected => m_running;
 
+        public event EventHandler RecalibrationNeeded;
+
         public static IpcClient Instance() {
             if ( m_pInstance == null ) {
                 m_pInstance = new IpcClient();
@@ -216,6 +218,11 @@ namespace PSVR2Toolkit.CAPI {
 
                             }
                         }
+                        break;
+                    }
+                case ECommandType.ServerRecalibrationNeeded: {
+                        Console.WriteLine("[IPC_CLIENT] Recalibration notification received from server.");
+                        RecalibrationNeeded?.Invoke(this, EventArgs.Empty);
                         break;
                     }
             }

@@ -30,6 +30,11 @@ namespace psvr2_toolkit {
       , m_cursorDeadzone(0.05f)
       , m_smoothedGazeX(0.0f)
       , m_smoothedGazeY(0.0f)
+      , m_driftDetectionEnabled(true)
+      , m_gazeVarianceAccumulator(0.0f)
+      , m_gazeVarianceSampleCount(0)
+      , m_lastNotifiedDrift(0.0f)
+      , m_lastDriftCheckTime(std::chrono::steady_clock::now())
     {}
 
     IpcServer *IpcServer::Instance() {
@@ -510,6 +515,59 @@ namespace psvr2_toolkit {
 
       // Move cursor
       SetCursorPos(newX, newY);
+    }
+
+    void IpcServer::CheckGazeDrift(float gazeX, float gazeY) {
+      if (!m_driftDetectionEnabled || m_calibrationActive) {
+        return;
+      }
+
+      // Calculate variance from center (drift indicator)
+      float variance = gazeX * gazeX + gazeY * gazeY;
+      m_gazeVarianceAccumulator += variance;
+      m_gazeVarianceSampleCount++;
+
+      // Check drift every 5 seconds
+      auto now = std::chrono::steady_clock::now();
+      auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - m_lastDriftCheckTime).count();
+
+      if (elapsed >= 5 && m_gazeVarianceSampleCount > 0) {
+        float avgVariance = m_gazeVarianceAccumulator / m_gazeVarianceSampleCount;
+
+        // Drift threshold: if average variance exceeds 0.15, suggest recalibration
+        // Only notify if drift increased significantly since last notification
+        const float DRIFT_THRESHOLD = 0.15f;
+        const float NOTIFICATION_COOLDOWN = 300.0f; // 5 minutes between notifications
+
+        if (avgVariance > DRIFT_THRESHOLD && (avgVariance - m_lastNotifiedDrift) > 0.05f) {
+          // Check if enough time passed since last notification
+          static auto lastNotificationTime = std::chrono::steady_clock::now();
+          auto timeSinceLastNotification = std::chrono::duration_cast<std::chrono::seconds>(now - lastNotificationTime).count();
+
+          if (timeSinceLastNotification >= NOTIFICATION_COOLDOWN) {
+            // Send notification to all connected clients
+            for (const auto& [port, conn] : m_connections) {
+              sockaddr_in clientAddr = conn.clientAddr;
+              SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+              if (clientSocket != INVALID_SOCKET) {
+                if (connect(clientSocket, (sockaddr*)&clientAddr, sizeof(clientAddr)) == 0) {
+                  SendIpcCommand(clientSocket, Command_ServerRecalibrationNeeded);
+                  closesocket(clientSocket);
+                }
+              }
+            }
+
+            m_lastNotifiedDrift = avgVariance;
+            lastNotificationTime = now;
+            Util::DriverLog("[IPC_SERVER] Gaze drift detected (variance: {:.3f}), recalibration notification sent", avgVariance);
+          }
+        }
+
+        // Reset accumulators
+        m_gazeVarianceAccumulator = 0.0f;
+        m_gazeVarianceSampleCount = 0;
+        m_lastDriftCheckTime = now;
+      }
     }
 
     void IpcServer::SendIpcCommand(SOCKET clientSocket, ECommandType type, void *pData, int dataLen) {

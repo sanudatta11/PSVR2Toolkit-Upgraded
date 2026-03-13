@@ -24,6 +24,8 @@ namespace PSVR2Toolkit.CAPI {
 
         ClientEnableGazeCursor, // CommandDataClientGazeCursorControl
         ClientDisableGazeCursor, // No command data.
+
+        ServerRecalibrationNeeded, // No command data - notification from server
     };
 
     public enum EHandshakeResult : byte {

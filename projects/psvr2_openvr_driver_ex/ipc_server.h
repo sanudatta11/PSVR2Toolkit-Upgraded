@@ -5,6 +5,7 @@
 
 #include <windows.h>
 
+#include <chrono>
 #include <cstdint>
 #include <map>
 #include <thread>
@@ -29,6 +30,7 @@ namespace psvr2_toolkit {
       float GetGazeOffsetX() const { return m_gazeOffsetX; }
       float GetGazeOffsetY() const { return m_gazeOffsetY; }
       void UpdateGazeCursor(float gazeX, float gazeY);
+      void CheckGazeDrift(float gazeX, float gazeY);
 
     private:
       void LoadCalibrationFile();
@@ -63,6 +65,13 @@ namespace psvr2_toolkit {
       float m_cursorDeadzone;
       float m_smoothedGazeX;
       float m_smoothedGazeY;
+
+      // Drift detection for auto-recalibration
+      bool m_driftDetectionEnabled;
+      float m_gazeVarianceAccumulator;
+      int m_gazeVarianceSampleCount;
+      float m_lastNotifiedDrift;
+      std::chrono::steady_clock::time_point m_lastDriftCheckTime;
 
       void ReceiveLoop();
       void HandleClient(SOCKET clientSocket, SOCKADDR_IN clientAddr);
