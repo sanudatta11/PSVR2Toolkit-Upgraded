@@ -8,8 +8,6 @@ name: MSBuild
 on:
   push:
     branches: [ "main" ]
-    tags:
-      - 'v*'
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
@@ -35,6 +33,38 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate Version
+      id: version
+      shell: pwsh
+      run: |
+        # Get latest tag
+        $latestTag = git describe --tags --abbrev=0 2>$null
+        if (-not $latestTag) {
+          $latestTag = "v1.0.0"
+        }
+
+        # Parse version (remove 'v' prefix)
+        $version = $latestTag -replace '^v', ''
+        $parts = $version -split '\.'
+        $major = [int]$parts[0]
+        $minor = [int]$parts[1]
+        $patch = [int]$parts[2]
+
+        # Increment patch version
+        $patch++
+
+        # Create new version
+        $newVersion = "v$major.$minor.$patch"
+
+        Write-Host "Previous version: $latestTag"
+        Write-Host "New version: $newVersion"
+
+        # Set output
+        echo "version=$newVersion" >> $env:GITHUB_OUTPUT
+        echo "version_no_v=$major.$minor.$patch" >> $env:GITHUB_OUTPUT
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v1.0.2
@@ -81,7 +111,7 @@ jobs:
 
     # Package release files
     - name: Create Release Package
-      if: startsWith(github.ref, 'refs/tags/')
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       shell: pwsh
       run: |
         # Create release directory
@@ -111,17 +141,19 @@ jobs:
         Copy-Item CALIBRATION_INTEGRATION.md -Destination release/ -ErrorAction SilentlyContinue
 
         # Create zip archive
-        Compress-Archive -Path release/* -DestinationPath PSVR2Toolkit-${{github.ref_name}}.zip
+        Compress-Archive -Path release/* -DestinationPath PSVR2Toolkit-${{steps.version.outputs.version}}.zip
 
     # Create GitHub Release
     - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v1
       with:
+        tag_name: ${{steps.version.outputs.version}}
+        name: PSVR2 Toolkit ${{steps.version.outputs.version}}
         files: |
-          PSVR2Toolkit-${{github.ref_name}}.zip
+          PSVR2Toolkit-${{steps.version.outputs.version}}.zip
         body: |
-          ## PSVR2 Toolkit ${{github.ref_name}}
+          ## PSVR2 Toolkit ${{steps.version.outputs.version}}
 
           ### What's Included
           - ✅ Enhanced driver with eye tracking calibration support
@@ -130,7 +162,7 @@ jobs:
           - ✅ Complete documentation
 
           ### Installation
-          1. Download `PSVR2Toolkit-${{github.ref_name}}.zip`
+          1. Download `PSVR2Toolkit-${{steps.version.outputs.version}}.zip`
           2. Extract to a folder
           3. Run `driver-install-full.ps1` as Administrator
           4. Restart SteamVR
