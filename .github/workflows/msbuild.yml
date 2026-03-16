@@ -99,12 +99,15 @@ jobs:
         Copy-Item "${{env.ARTIFACTS_DIR}}/Newtonsoft.Json.dll" -Destination release/
 
         # Copy installation scripts
-        Copy-Item scripts/driver-install.ps1 -Destination release/
-        Copy-Item scripts/driver-install-full.ps1 -Destination release/
-        Copy-Item scripts/driver-restore.ps1 -Destination release/
+        Copy-Item install.bat -Destination release/
+        New-Item -ItemType Directory -Force -Path release/scripts
+        Copy-Item scripts/driver-install.ps1 -Destination release/scripts/
+        Copy-Item scripts/driver-install-full.ps1 -Destination release/scripts/
+        Copy-Item scripts/driver-restore.ps1 -Destination release/scripts/
 
         # Copy documentation
         Copy-Item README.md -Destination release/
+        Copy-Item INSTALL.md -Destination release/
         Copy-Item CALIBRATION_INTEGRATION.md -Destination release/ -ErrorAction SilentlyContinue
 
         # Create zip archive

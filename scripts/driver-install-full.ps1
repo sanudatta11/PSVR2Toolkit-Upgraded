@@ -135,18 +135,18 @@ function Install-Driver {
     try {
         Write-Log "Step 1: Backing up original Sony driver..."
         Copy-Item -Path $originalDll -Destination $backupDll -Force
-        Write-Log "  ✓ Backup created"
+        Write-Log "  [OK] Backup created"
 
         Write-Log "Step 2: Removing original driver..."
         Remove-Item -Path $originalDll -Force
-        Write-Log "  ✓ Original driver removed"
+        Write-Log "  [OK] Original driver removed"
 
         Write-Log "Step 3: Installing PSVR2 Toolkit driver..."
         Copy-Item -Path $SourceDllPath -Destination $originalDll -Force
-        Write-Log "  ✓ Toolkit driver installed"
+        Write-Log "  [OK] Toolkit driver installed"
 
         if ((Test-Path $originalDll) -and (Test-Path $backupDll)) {
-            Write-Log "  ✓ Driver installation verified"
+            Write-Log "  [OK] Driver installation verified"
             return $true
         }
 
@@ -191,9 +191,9 @@ function Install-SteamVRSettings {
                 Remove-Item -Path $targetDriverPath -Recurse -Force
             }
             Copy-Item -Path $sourceDriverPath -Destination $targetDriverPath -Recurse -Force
-            Write-Log "  ✓ Localization resources installed"
+            Write-Log "  [OK] Localization resources installed"
         } else {
-            Write-Log "  ✗ Source driver path not found: $sourceDriverPath" "WARN"
+            Write-Log "  [FAIL] Source driver path not found: $sourceDriverPath" "WARN"
             return $false
         }
 
@@ -207,14 +207,14 @@ function Install-SteamVRSettings {
         }
 
         if (-not (Test-Path $psvr2ResourcesPath)) {
-            Write-Log "  ✗ PS VR2 resources directory not found" "WARN"
+            Write-Log "  [FAIL] PS VR2 resources directory not found" "WARN"
             return $false
         }
 
         $settingsDir = Join-Path $psvr2ResourcesPath "settings"
         if (-not (Test-Path $settingsDir)) {
             New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
-            Write-Log "  ✓ Created settings directory"
+            Write-Log "  [OK] Created settings directory"
         }
 
         $sourceSchema = Join-Path $resourcesDir "settingsschema.vrsettings"
@@ -222,13 +222,13 @@ function Install-SteamVRSettings {
 
         if (Test-Path $sourceSchema) {
             Copy-Item -Path $sourceSchema -Destination $targetSchema -Force
-            Write-Log "  ✓ Settings schema installed"
+            Write-Log "  [OK] Settings schema installed"
         } else {
-            Write-Log "  ✗ Source schema not found: $sourceSchema" "WARN"
+            Write-Log "  [FAIL] Source schema not found: $sourceSchema" "WARN"
             return $false
         }
 
-        Write-Log "  ✓ SteamVR settings integration complete"
+        Write-Log "  [OK] SteamVR settings integration complete"
         return $true
 
     } catch {
@@ -344,7 +344,7 @@ To restore the original driver, run: .\driver-restore.ps1
 
     try {
         $logContent | Out-File -FilePath $logFile -Encoding UTF8 -Append
-        Write-Log "  ✓ Log written to: $logFile"
+        Write-Log "  [OK] Log written to: $logFile"
     } catch {
         Write-Log "Failed to write log file: $_" "WARN"
     }
@@ -362,6 +362,6 @@ To restore the original driver, run: .\driver-restore.ps1
 
 } catch {
     Write-Log "Unexpected error during installation: $_" "ERROR"
-    Write-Log $_.ScriptStackTrace "ERROR"
+    Write-Log "$($_.ScriptStackTrace)" "ERROR"
     exit 1
 }

@@ -46,11 +46,6 @@ This document compares features between the original PSVR2 PC drivers (by Rectus
 | Protocol Documentation | ✅ | ✅ | Enhanced | Updated for new commands |
 | Build Automation | ❌ | ✅ | **NEW** | GitHub Actions CI/CD |
 | Auto-Release Creation | ❌ | ✅ | **NEW** | Automated releases on tag push |
-| **Documentation** |
-| Basic README | ✅ | ✅ | Enhanced | User-friendly installation guide |
-| Troubleshooting Guide | ❌ | ✅ | **NEW** | Common issues & solutions |
-| Calibration Instructions | ❌ | ✅ | **NEW** | Step-by-step calibration guide |
-| Feature Implementation Docs | ❌ | ✅ | **NEW** | Technical implementation details |
 
 ---
 
