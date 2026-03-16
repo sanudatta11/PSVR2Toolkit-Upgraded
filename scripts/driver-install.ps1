@@ -204,7 +204,7 @@ try {
     Write-Log "Step 1: Backing up original Sony driver..."
     try {
         Copy-Item -Path $originalDll -Destination $backupDll -Force
-        Write-Log "  ✓ Backup created: driver_playstation_vr2_orig.dll"
+        Write-Log "  [OK] Backup created: driver_playstation_vr2_orig.dll"
     } catch {
         Write-Log "Failed to create backup: $_" "ERROR"
         exit 1
@@ -214,7 +214,7 @@ try {
     Write-Log "Step 2: Removing original driver..."
     try {
         Remove-Item -Path $originalDll -Force
-        Write-Log "  ✓ Original driver removed"
+        Write-Log "  [OK] Original driver removed"
     } catch {
         Write-Log "Failed to remove original driver: $_" "ERROR"
         Write-Log "Attempting to restore backup..." "WARN"
@@ -227,7 +227,7 @@ try {
     Write-Log "Step 3: Installing PSVR2 Toolkit driver..."
     try {
         Copy-Item -Path $sourceDllFullPath -Destination $originalDll -Force
-        Write-Log "  ✓ Toolkit driver installed"
+        Write-Log "  [OK] Toolkit driver installed"
     } catch {
         Write-Log "Failed to install toolkit driver: $_" "ERROR"
         Write-Log "Attempting to restore backup..." "WARN"
@@ -242,7 +242,7 @@ try {
     $verifyBackup = Test-Path $backupDll
 
     if ($verifyOriginal -and $verifyBackup) {
-        Write-Log "  ✓ Verification passed"
+        Write-Log "  [OK] Verification passed"
         Write-Log "    - driver_playstation_vr2.dll (toolkit): $(Test-Path $originalDll)"
         Write-Log "    - driver_playstation_vr2_orig.dll (Sony backup): $(Test-Path $backupDll)"
     } else {
@@ -272,7 +272,7 @@ To restore the original driver, run: .\driver-restore.ps1
 
     try {
         $logContent | Out-File -FilePath $logFile -Encoding UTF8 -Append
-        Write-Log "  ✓ Log written to: $logFile"
+        Write-Log "  [OK] Log written to: $logFile"
     } catch {
         Write-Log "Failed to write log file: $_" "WARN"
     }
@@ -287,6 +287,6 @@ To restore the original driver, run: .\driver-restore.ps1
 
 } catch {
     Write-Log "Unexpected error during installation: $_" "ERROR"
-    Write-Log $_.ScriptStackTrace "ERROR"
+    Write-Log "$($_.ScriptStackTrace)" "ERROR"
     exit 1
 }
