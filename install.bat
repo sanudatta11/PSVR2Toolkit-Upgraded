@@ -59,7 +59,7 @@ echo Starting installation...
 echo.
 
 REM Run the PowerShell installation script
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "scripts\driver-install-full.ps1" -SourceDll "%DLL_PATH%"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '%~dp0scripts\driver-install-full.ps1' -SourceDll '%DLL_PATH%'"
 
 if %errorLevel% equ 0 (
     echo.
