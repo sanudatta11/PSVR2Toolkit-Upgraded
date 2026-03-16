@@ -339,6 +339,7 @@ namespace PSVR2Toolkit.App
                 @"SteamApps\common\PS VR2\SteamVR_Plug-In\bin\win64"
             };
 
+            // Check main Steam installation
             foreach (var relativePath in relativePaths)
             {
                 var fullPath = Path.Combine(steamPath, relativePath);
@@ -348,7 +349,64 @@ namespace PSVR2Toolkit.App
                 }
             }
 
+            // Check Steam library folders
+            var libraryFolders = GetSteamLibraryFolders(steamPath);
+            foreach (var libraryFolder in libraryFolders)
+            {
+                foreach (var relativePath in relativePaths)
+                {
+                    var fullPath = Path.Combine(libraryFolder, relativePath);
+                    if (Directory.Exists(fullPath))
+                    {
+                        Logger.Debug($"Found PS VR2 driver in library folder: {fullPath}");
+                        return fullPath;
+                    }
+                }
+            }
+
             return null;
+        }
+
+        private List<string> GetSteamLibraryFolders(string steamPath)
+        {
+            var libraryFolders = new List<string>();
+
+            try
+            {
+                var libraryFoldersVdf = Path.Combine(steamPath, "steamapps", "libraryfolders.vdf");
+                if (!File.Exists(libraryFoldersVdf))
+                {
+                    libraryFoldersVdf = Path.Combine(steamPath, "SteamApps", "libraryfolders.vdf");
+                }
+
+                if (File.Exists(libraryFoldersVdf))
+                {
+                    var lines = File.ReadAllLines(libraryFoldersVdf);
+                    foreach (var line in lines)
+                    {
+                        // Parse VDF format: "path"		"D:\\SteamLibrary"
+                        if (line.Contains("\"path\""))
+                        {
+                            var parts = line.Split(new[] { '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                            if (parts.Length >= 2)
+                            {
+                                var path = parts[1].Trim('"').Replace("\\\\", "\\");
+                                if (Directory.Exists(path))
+                                {
+                                    libraryFolders.Add(path);
+                                    Logger.Debug($"Found Steam library folder: {path}");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"Failed to read Steam library folders: {ex.Message}", ex);
+            }
+
+            return libraryFolders;
         }
     }
 }
