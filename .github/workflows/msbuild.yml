@@ -100,15 +100,6 @@ jobs:
           ${{env.ARTIFACTS_DIR}}/PSVR2Toolkit.IPC.dll
           ${{env.ARTIFACTS_DIR}}/Newtonsoft.Json.dll
 
-    - name: Upload Installation Scripts
-      uses: actions/upload-artifact@v4
-      with:
-        name: psvr2-toolkit-scripts
-        path: |
-          scripts/driver-install.ps1
-          scripts/driver-install-full.ps1
-          scripts/driver-restore.ps1
-
     # Package release files
     - name: Create Release Package
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -127,13 +118,6 @@ jobs:
         Copy-Item "${{env.ARTIFACTS_DIR}}/PSVR2Toolkit.App.deps.json" -Destination release/
         Copy-Item "${{env.ARTIFACTS_DIR}}/PSVR2Toolkit.IPC.dll" -Destination release/
         Copy-Item "${{env.ARTIFACTS_DIR}}/Newtonsoft.Json.dll" -Destination release/
-
-        # Copy installation scripts
-        Copy-Item install.bat -Destination release/
-        New-Item -ItemType Directory -Force -Path release/scripts
-        Copy-Item scripts/driver-install.ps1 -Destination release/scripts/
-        Copy-Item scripts/driver-install-full.ps1 -Destination release/scripts/
-        Copy-Item scripts/driver-restore.ps1 -Destination release/scripts/
 
         # Copy documentation
         Copy-Item README.md -Destination release/
@@ -156,27 +140,35 @@ jobs:
           ## PSVR2 Toolkit ${{steps.version.outputs.version}}
 
           ### What's Included
-          - ✅ Enhanced driver with eye tracking calibration support
-          - ✅ Companion application with calibration UI
-          - ✅ Automated installation scripts
-          - ✅ Complete documentation
+          - ✅ Enhanced OpenVR driver with eye tracking calibration support
+          - ✅ Companion application with calibration UI and battery monitoring
+          - ✅ Complete installation and usage documentation
 
-          ### Installation
-          1. Download `PSVR2Toolkit-${{steps.version.outputs.version}}.zip`
-          2. Extract to a folder
-          3. Run `driver-install-full.ps1` as Administrator
-          4. Restart SteamVR
-          5. Run `PSVR2Toolkit.App.exe` for calibration and settings
+          ### Quick Installation
+          1. Download and extract `PSVR2Toolkit-${{steps.version.outputs.version}}.zip`
+          2. Backup your original `driver_playstation_vr2.dll` in Steam folder
+          3. Replace it with the one from this package
+          4. Copy companion app files to a permanent location
+          5. Restart SteamVR
 
-          ### New in This Release
-          - Eye tracking calibration system integrated
-          - Real-time gaze offset correction
-          - Improved companion app UI
-          - Better installation scripts
+          **See INSTALL.md for detailed step-by-step instructions.**
 
-          **Note:** Eye tracking calibration tool (PSVR2EyeTrackingCalibration.exe) must be placed in the same folder as PSVR2Toolkit.App.exe for calibration features to work.
+          ### Features
+          - 🎯 Eye tracking calibration with gaze offset adjustment
+          - 🎮 DualSense trigger effect profiles (Soft, Medium, Rigid, Vibration)
+          - 🔋 Real-time battery monitoring for controllers
+          - 🔧 Health check and diagnostics
+          - ⚙️ Manual settings adjustment
 
-          For support, join our [Discord](https://discord.gg/dPsfJhsGwb)
+          ### Requirements
+          - PlayStation VR2 headset
+          - SteamVR installed
+          - .NET 8.0 Runtime (included in Windows 11)
+
+          ### Support
+          - 📖 Documentation: See INSTALL.md in the package
+          - 🐛 Issues: https://github.com/sanudatta11/PSVR2Toolkit-Upgraded/issues
+          - 💬 Discord: https://discord.gg/dPsfJhsGwb
         draft: false
         prerelease: false
 

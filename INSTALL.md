@@ -1,50 +1,99 @@
 # PSVR2 Toolkit Installation Guide
 
-## Quick Installation (Recommended)
+## Installation Steps
 
-1. **Extract** the downloaded ZIP file to a folder
-2. **Right-click** on `install.bat` and select **"Run as Administrator"**
-3. Wait for the installation to complete
-4. **Restart SteamVR**
+### 1. Locate Your PS VR2 Driver Folder
 
-That's it! You're done.
+Navigate to your Steam installation and find the PS VR2 driver folder:
+```
+Steam\steamapps\common\PS VR2\SteamVR_Plug-In\bin\win64\
+```
+
+Common Steam locations:
+- `C:\Program Files (x86)\Steam\`
+- `D:\Steam\`
+- `E:\Steam\`
+
+### 2. Rename the Original Driver
+
+In the `win64` folder, you'll find `driver_playstation_vr2.dll`
+
+**IMPORTANT:** The toolkit driver is a wrapper that extends the original Sony driver. You must rename the original:
+1. Right-click on `driver_playstation_vr2.dll`
+2. Select "Rename"
+3. Change the name to `driver_playstation_vr2_orig.dll`
+
+**Both files must be present for the toolkit to work!**
+
+### 3. Install the Toolkit Driver
+
+1. Download and extract the PSVR2 Toolkit release ZIP
+2. Copy `driver_playstation_vr2.dll` from the release package
+3. Paste it into the `win64` folder
+
+You should now have **both files** in the folder:
+- `driver_playstation_vr2.dll` (Toolkit wrapper)
+- `driver_playstation_vr2_orig.dll` (Original Sony driver)
+
+### 4. Install the Companion App
+
+1. Copy all files from the release package to a permanent location (e.g., `C:\Program Files\PSVR2Toolkit\`)
+2. Keep these files together:
+   - `PSVR2Toolkit.App.exe`
+   - `PSVR2Toolkit.App.dll`
+   - `PSVR2Toolkit.App.runtimeconfig.json`
+   - `PSVR2Toolkit.App.deps.json`
+   - `PSVR2Toolkit.IPC.dll`
+   - `Newtonsoft.Json.dll`
+
+### 5. Restart SteamVR
+
+Close and restart SteamVR for the changes to take effect.
 
 ---
 
-## Manual Installation (Advanced)
+## Using the Companion App
 
-If you prefer to install manually or the batch file doesn't work:
+### Launching the App
 
-### Using PowerShell Script
+Run `PSVR2Toolkit.App.exe` from where you installed it.
 
-1. Open PowerShell as Administrator
-2. Navigate to the extracted folder
-3. Run:
-   ```powershell
-   .\scripts\driver-install-full.ps1 -SourceDll .\driver_playstation_vr2.dll
-   ```
+**Requirements:**
+- .NET 8.0 Runtime (included in Windows 11, [download for Windows 10](https://dotnet.microsoft.com/download/dotnet/8.0))
+- SteamVR must be running for most features to work
 
-### What Gets Installed
+### Features
 
-- **Enhanced Driver**: Replaces the Sony driver with PSVR2 Toolkit version
-  - Original driver backed up as `driver_playstation_vr2_orig.dll`
-  - Located in: `Steam\steamapps\common\PS VR2\SteamVR_Plug-In\bin\win64\`
+#### 1. **Eye Tracking Calibration**
+- Adjusts gaze offset for better eye tracking accuracy
+- Click "Calibrate" and follow on-screen instructions
+- Calibration data is saved automatically
 
-- **SteamVR Settings Integration** (Optional): Adds in-VR settings menu
-  - Access via: SteamVR Settings → PlayStation VR2
+#### 2. **Trigger Effect Profiles**
+- Customize DualSense controller trigger resistance
+- Choose from presets: Off, Soft, Medium, Rigid, Vibration
+- Changes apply immediately to connected controllers
 
----
+#### 3. **Battery Monitoring**
+- View battery levels for left and right controllers
+- Shows charging status
+- Real-time updates when SteamVR is running
 
-## Companion Application
+#### 4. **Health Check**
+- Verifies IPC server connection
+- Checks driver installation status
+- Displays current settings and configuration
 
-Run `PSVR2Toolkit.App.exe` to access:
-- Eye tracking calibration
-- Gaze offset adjustment
-- Trigger effect profiles
-- Health check diagnostics
-- Battery monitoring (when SteamVR is running)
+#### 5. **Settings**
+- Adjust gaze offset manually (X, Y, Z coordinates)
+- Configure trigger profiles per controller
+- Save/load custom configurations
 
-**Note**: Requires .NET 8.0 Runtime (included in Windows 11, downloadable for Windows 10)
+### Tips
+
+- **Keep the app running** in the background for real-time adjustments
+- **Calibrate regularly** if you notice eye tracking drift
+- **Check Health Status** if features aren't working
 
 ---
 
@@ -52,35 +101,39 @@ Run `PSVR2Toolkit.App.exe` to access:
 
 To restore the original Sony driver:
 
-1. Run `scripts\driver-restore.ps1` as Administrator, **OR**
-2. Manually restore the backup:
-   - Navigate to: `Steam\steamapps\common\PS VR2\SteamVR_Plug-In\bin\win64\`
-   - Delete `driver_playstation_vr2.dll`
-   - Rename `driver_playstation_vr2_orig.dll` to `driver_playstation_vr2.dll`
+1. Navigate to: `Steam\steamapps\common\PS VR2\SteamVR_Plug-In\bin\win64\`
+2. Delete `driver_playstation_vr2.dll`
+3. Rename `driver_playstation_vr2_orig.dll` to `driver_playstation_vr2.dll`
+4. Restart SteamVR
 
 ---
 
 ## Troubleshooting
 
-**"Access Denied" errors**: Make sure you run as Administrator
+**Driver not loading:**
+- Verify the DLL is in the correct folder
+- Check that you backed up the original file
+- Restart SteamVR completely (close from system tray)
 
-**"Steam not found"**: Use the `-SteamPath` parameter:
-```powershell
-.\scripts\driver-install-full.ps1 -SourceDll .\driver_playstation_vr2.dll -SteamPath "D:\Steam"
-```
+**Companion app won't start:**
+- Install .NET 8.0 Runtime
+- Run as Administrator if needed
+- Check Windows Event Viewer for error details
 
-**Driver already installed**: Use `-Force` to reinstall:
-```powershell
-.\scripts\driver-install-full.ps1 -SourceDll .\driver_playstation_vr2.dll -Force
-```
+**Eye tracking not working:**
+- Ensure SteamVR is running
+- Run the Health Check in the companion app
+- Try recalibrating eye tracking
 
-**Skip SteamVR settings**: Use `-SkipSteamVRSettings`:
-```powershell
-.\scripts\driver-install-full.ps1 -SourceDll .\driver_playstation_vr2.dll -SkipSteamVRSettings
-```
+**Battery info not showing:**
+- SteamVR must be running
+- Controllers must be connected and turned on
+- Wait a few seconds for data to populate
 
 ---
 
 ## Support
 
-For issues and support, visit: https://github.com/sanudatta11/PSVR2Toolkit-Upgraded
+For issues and support:
+- GitHub Issues: https://github.com/sanudatta11/PSVR2Toolkit-Upgraded/issues
+- Discord: https://discord.gg/dPsfJhsGwb
