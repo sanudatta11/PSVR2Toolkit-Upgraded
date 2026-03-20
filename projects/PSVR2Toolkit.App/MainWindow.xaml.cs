@@ -700,8 +700,18 @@ public partial class MainWindow : Window
         var ipcClient = IpcClient.Instance();
         if (ipcClient == null || !ipcClient.IsConnected)
         {
-            HapticStatusLabel.Text = "Not connected to driver";
+            HapticStatusLabel.Text = "❌ Not connected to driver - Check Health Check tab";
             Logger.Warning("Cannot test haptic: IPC client not connected");
+            MessageBox.Show(
+                "Cannot test headset haptics because the IPC connection to the driver is not established.\n\n" +
+                "Please check:\n" +
+                "1. SteamVR is running\n" +
+                "2. PSVR2 headset is connected and detected\n" +
+                "3. Health Check tab shows IPC connection as 'Pass'\n\n" +
+                "If the headset is connected, try restarting SteamVR and this app.",
+                "IPC Connection Required",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
             return;
         }
 
@@ -711,19 +721,24 @@ public partial class MainWindow : Window
         try
         {
             ipcClient.HeadsetHapticVibration(amplitude, frequency);
-            HapticStatusLabel.Text = $"Testing: amplitude={amplitude}, frequency={frequency}";
+            HapticStatusLabel.Text = $"✓ Testing: amplitude={amplitude}, frequency={frequency}";
             Logger.Info($"Headset haptic test: amplitude={amplitude}, frequency={frequency}");
 
             await Task.Delay(AppConstants.HAPTIC_TEST_DURATION_MS);
 
             // Stop haptic after test duration by sending amplitude 0
             ipcClient.HeadsetHapticVibration(0, 0);
-            HapticStatusLabel.Text = "Idle (test complete)";
+            HapticStatusLabel.Text = "✓ Idle (test complete)";
         }
         catch (Exception ex)
         {
             Logger.Error($"Headset haptic test failed: {ex.Message}", ex);
-            HapticStatusLabel.Text = "Test failed - see logs";
+            HapticStatusLabel.Text = "❌ Test failed - see logs";
+            MessageBox.Show(
+                $"Headset haptic test failed:\n\n{ex.Message}\n\nCheck the logs for more details.",
+                "Haptic Test Failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
