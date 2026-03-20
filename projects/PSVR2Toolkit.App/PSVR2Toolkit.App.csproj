@@ -19,6 +19,14 @@
     </None>
   </ItemGroup>
 
+  <!-- Copy openxr_loader.dll from SteamVR for calibration tool -->
+  <Target Name="CopyOpenXRLoader" AfterTargets="Build">
+    <Copy SourceFiles="C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\openxr_loader.dll"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\openxr_loader.dll')" />
+  </Target>
+
   <ItemGroup>
     <ProjectReference Include="..\PSVR2Toolkit.IPC\PSVR2Toolkit.IPC.csproj" />
   </ItemGroup>
