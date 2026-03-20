@@ -8,6 +8,8 @@ namespace psvr2_toolkit {
   public:
     static void InstallHooks();
     static void UpdateGaze(void* pData, size_t dwSize);
+    static void EnableCalibration(bool enable);
+    static void ReloadCalibration();
   };
 
 } // psvr2_toolkit

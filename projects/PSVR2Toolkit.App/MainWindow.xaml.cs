@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly BatteryMonitorService batteryMonitorService;
     private readonly DispatcherTimer gazeUpdateTimer;
     private readonly DispatcherTimer batteryUpdateTimer;
+    private readonly DispatcherTimer healthCheckTimer;
     private bool gazeUpdatePaused = false;
     private bool isUpdatingGaze = false;
     private CancellationTokenSource? gazeCancellationTokenSource;
@@ -50,6 +51,14 @@ public partial class MainWindow : Window
         batteryUpdateTimer.Tick += BatteryUpdateTimer_Tick;
         batteryUpdateTimer.Start();
 
+        // Initialize health check auto-refresh timer (update every 10 seconds)
+        healthCheckTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(10)
+        };
+        healthCheckTimer.Tick += HealthCheckTimer_Tick;
+        healthCheckTimer.Start();
+
         gazeCancellationTokenSource = new CancellationTokenSource();
 
         // Load trigger profiles
@@ -82,6 +91,8 @@ public partial class MainWindow : Window
     {
         // Clean up resources
         gazeUpdateTimer?.Stop();
+        batteryUpdateTimer?.Stop();
+        healthCheckTimer?.Stop();
         gazeCancellationTokenSource?.Cancel();
         gazeCancellationTokenSource?.Dispose();
         Logger.Info("Application closed");
@@ -872,6 +883,12 @@ public partial class MainWindow
     private void BatteryUpdateTimer_Tick(object? sender, EventArgs e)
     {
         UpdateBatteryStatus();
+    }
+
+    private void HealthCheckTimer_Tick(object? sender, EventArgs e)
+    {
+        // Auto-refresh health check to keep connection status updated
+        RunHealthCheck();
     }
 
     private void UpdateBatteryStatus()

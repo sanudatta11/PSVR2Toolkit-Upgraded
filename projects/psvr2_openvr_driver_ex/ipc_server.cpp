@@ -1,10 +1,11 @@
 #include "ipc_server.h"
-
-#include "headset_haptic_manager.h"
+#include "hmd2_gaze.h"
+#include "hmd_device_hooks.h"
 #include "trigger_effect_manager.h"
-#include "util.h"
+#include "headset_haptic_manager.h"
+#include "eyelid_estimator.h"
 #include "vr_settings.h"
-
+#include "util.h"
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -483,7 +484,8 @@ namespace psvr2_toolkit {
           std::lock_guard<std::mutex> lock(m_connectionsMutex);
           if (pHeader->dataLen == 0 && m_connections.contains(clientPort)) {
             m_calibrationActive = true;
-            Util::DriverLog("[IPC_SERVER] Gaze calibration started");
+            HmdDeviceHooks::EnableCalibration(false); // Disable offset application during calibration
+            Util::DriverLog("[IPC_SERVER] Gaze calibration started - offsets disabled");
           }
           break;
         }
@@ -492,8 +494,8 @@ namespace psvr2_toolkit {
           std::lock_guard<std::mutex> lock(m_connectionsMutex);
           if (pHeader->dataLen == 0 && m_connections.contains(clientPort)) {
             m_calibrationActive = false;
-            LoadCalibrationFile();
-            Util::DriverLog("[IPC_SERVER] Gaze calibration stopped, calibration file reloaded");
+            HmdDeviceHooks::ReloadCalibration(); // Reload calibration file and re-enable offsets
+            Util::DriverLog("[IPC_SERVER] Gaze calibration stopped - reloading calibration data");
           }
           break;
         }

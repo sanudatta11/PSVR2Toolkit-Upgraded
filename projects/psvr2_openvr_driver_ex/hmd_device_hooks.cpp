@@ -13,6 +13,8 @@
 
 #include <cmath>
 #include <cstdint>
+#include <fstream>
+#include <shlobj.h>
 
 namespace psvr2_toolkit {
   void* (*CaesarManager__getInstance)();
@@ -26,6 +28,36 @@ namespace psvr2_toolkit {
 #endif
   vr::VRInputComponentHandle_t eyeTrackingComponent = vr::k_ulInvalidInputComponentHandle;
   int64_t currentBrightness;
+
+  // Calibration data (loaded from file)
+  static float g_calibOffsetX = 0.0f;
+  static float g_calibOffsetY = 0.0f;
+  static bool g_hasCalibrated = false;
+  static bool g_isCalibratingNow = false;
+
+  static std::string GetCalibrationFilePath() {
+    char path[MAX_PATH];
+    if (SUCCEEDED(SHGetFolderPathA(NULL, CSIDL_MYDOCUMENTS, NULL, 0, path))) {
+      return std::string(path) + "\\PSVR2Calibration.txt";
+    }
+    return "C:\\PSVR2Calibration.txt";
+  }
+
+  static void LoadCalibrationData() {
+    std::string path = GetCalibrationFilePath();
+    std::ifstream file(path);
+    if (file.is_open()) {
+      if (file >> g_calibOffsetX >> g_calibOffsetY) {
+        g_hasCalibrated = true;
+        Util::DriverLog("[Gaze Calibration] Loaded calibration: offsetX={}, offsetY={}", g_calibOffsetX, g_calibOffsetY);
+      } else {
+        Util::DriverLog("[Gaze Calibration] Failed to parse calibration file");
+      }
+      file.close();
+    } else {
+      Util::DriverLog("[Gaze Calibration] No calibration file found at: {}", path);
+    }
+  }
 
   vr::EVRInitError (*sie__psvr2__HmdDevice__Activate)(void *, uint32_t) = nullptr;
   vr::EVRInitError sie__psvr2__HmdDevice__ActivateHook(void *thisptr, uint32_t unObjectId) {
@@ -135,31 +167,33 @@ namespace psvr2_toolkit {
       auto& origin = pGazeState->combined.gazeOriginMm;
       auto& direction = pGazeState->combined.gazeDirNorm;
 
-      // Apply calibration offsets
-      static auto* pIpcServer = psvr2_toolkit::ipc::IpcServer::Instance();
-      float offsetX = pIpcServer->GetGazeOffsetX();
-      float offsetY = pIpcServer->GetGazeOffsetY();
+      float rawX = direction.x;
+      float rawY = direction.y;
+      float rawZ = direction.z;
 
-      float correctedX = direction.x + offsetX;
-      float correctedY = direction.y + offsetY;
-      float correctedZ = direction.z;
+      // Apply calibration offsets only if we have calibration data and are not currently calibrating
+      if (g_hasCalibrated && !g_isCalibratingNow) {
+        rawX += g_calibOffsetX;
+        rawY += g_calibOffsetY;
 
-      // Normalize the corrected direction vector
-      float length = sqrtf(correctedX * correctedX + correctedY * correctedY + correctedZ * correctedZ);
-      if (length > 0.0f) {
-        correctedX /= length;
-        correctedY /= length;
-        correctedZ /= length;
+        // Normalize the corrected direction vector
+        float length = sqrtf(rawX * rawX + rawY * rawY + rawZ * rawZ);
+        if (length > 0.0001f) {
+          rawX /= length;
+          rawY /= length;
+          rawZ /= length;
+        }
       }
 
       eyeTrackingData.vGazeOrigin = vr::HmdVector3_t { -origin.x / 1000.0f, origin.y / 1000.0f, -origin.z / 1000.0f };
-      eyeTrackingData.vGazeTarget = vr::HmdVector3_t { -correctedX, correctedY, -correctedZ };
+      eyeTrackingData.vGazeTarget = vr::HmdVector3_t { -rawX, rawY, -rawZ };
 
-      // Update gaze cursor if enabled
-      pIpcServer->UpdateGazeCursor(correctedX, correctedY);
+      // Update gaze cursor if enabled (use IPC server for cursor control)
+      static auto* pIpcServer = psvr2_toolkit::ipc::IpcServer::Instance();
+      pIpcServer->UpdateGazeCursor(rawX, rawY);
 
       // Check for calibration drift
-      pIpcServer->CheckGazeDrift(correctedX, correctedY);
+      pIpcServer->CheckGazeDrift(rawX, rawY);
 
       int64_t hmdToHostOffset;
 
@@ -176,7 +210,21 @@ namespace psvr2_toolkit {
   #endif
   }
 
+  void HmdDeviceHooks::EnableCalibration(bool enable) {
+    g_isCalibratingNow = !enable; // When enable=true (applying calibration), set isCalibrating=false
+    Util::DriverLog("[Gaze Calibration] Calibration Active: {}", enable);
+  }
+
+  void HmdDeviceHooks::ReloadCalibration() {
+    LoadCalibrationData();
+    g_isCalibratingNow = false; // After reload, resume applying calibration
+    Util::DriverLog("[Gaze Calibration] Calibration reloaded");
+  }
+
   void HmdDeviceHooks::InstallHooks() {
+    // Load calibration data on initialization
+    LoadCalibrationData();
+
     static HmdDriverLoader *pHmdDriverLoader = HmdDriverLoader::Instance();
 
     // sie::psvr2::HmdDevice::Activate

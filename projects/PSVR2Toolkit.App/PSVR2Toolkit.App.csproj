@@ -19,12 +19,18 @@
     </None>
   </ItemGroup>
 
-  <!-- Copy openxr_loader.dll from SteamVR for calibration tool -->
-  <Target Name="CopyOpenXRLoader" AfterTargets="Build">
+  <!-- Copy OpenVR/OpenXR DLLs from SteamVR -->
+  <Target Name="CopySteamVRDependencies" AfterTargets="Build">
+    <!-- openxr_loader.dll for calibration tool -->
     <Copy SourceFiles="C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\openxr_loader.dll"
           DestinationFolder="$(OutDir)"
           SkipUnchangedFiles="true"
           Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\openxr_loader.dll')" />
+    <!-- openvr_api.dll for battery monitoring -->
+    <Copy SourceFiles="C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\openvr_api.dll"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('C:\Program Files (x86)\Steam\steamapps\common\SteamVR\bin\win64\openvr_api.dll')" />
   </Target>
 
   <ItemGroup>

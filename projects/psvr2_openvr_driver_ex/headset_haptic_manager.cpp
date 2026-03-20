@@ -58,6 +58,7 @@ namespace psvr2_toolkit {
 
   void HeadsetHapticManager::HandleIpcCommand(uint32_t processId, ipc::CommandHeader_t *pHeader, void *pData) {
     if (!pData || !pHeader) {
+      Util::DriverLog("[HEADSET_HAPTIC] HandleIpcCommand: null data or header");
       return;
     }
 
@@ -69,13 +70,20 @@ namespace psvr2_toolkit {
         if (pHeader->dataLen == sizeof(ipc::CommandDataClientHeadsetHapticVibration_t)) {
           ipc::CommandDataClientHeadsetHapticVibration_t *pRequest = reinterpret_cast<ipc::CommandDataClientHeadsetHapticVibration_t *>(pData);
 
+          Util::DriverLog("[HEADSET_HAPTIC] Received haptic command: amplitude={}, frequency={}", pRequest->amplitude, pRequest->frequency);
+
           // If only frequency is set (amplitude is 0), use continuous vibration mode
           if (pRequest->amplitude == 0 && pRequest->frequency > 0) {
+            Util::DriverLog("[HEADSET_HAPTIC] Using continuous vibration mode");
             SetContinuousVibration(pRequest->frequency);
           } else {
             // Otherwise use one-shot haptic report
+            Util::DriverLog("[HEADSET_HAPTIC] Using one-shot haptic mode");
             SendHapticReport(pRequest->amplitude, pRequest->frequency);
           }
+        } else {
+          Util::DriverLog("[HEADSET_HAPTIC] Invalid data length: expected {}, got {}",
+                         sizeof(ipc::CommandDataClientHeadsetHapticVibration_t), pHeader->dataLen);
         }
         break;
       }
@@ -100,26 +108,22 @@ namespace psvr2_toolkit {
       return;
     }
 
-    // Build the haptic payload for the PSVR2 headset haptic motor.
-    // Byte 0: amplitude (motor strength, 0-255)
-    // Byte 1: frequency (vibration rate in Hz, 0-255)
-    // Bytes 2-7: reserved / padding
-    uint8_t payload[k_unHeadsetHapticPayloadSize] = {};
-    payload[0] = amplitude;
-    payload[1] = frequency;
+    // Use upstream's simpler method: report ID 8, 1-byte frequency
+    // This is the method that upstream confirmed works
+    Util::DriverLog("[HEADSET_HAPTIC] Sending haptic via report ID 8 (upstream method)");
 
     s_CaesarUsbThread__report(
       m_pUsbThreadContext,
       true,                          // bIsSet: output report (host -> device)
-      k_unHeadsetHapticReportId,     // report ID for headset haptic motor
-      payload,                       // haptic payload
-      k_unHeadsetHapticPayloadSize,  // payload length
-      0,                             // value (unused for HID output)
-      0,                             // index (unused for HID output)
-      0                              // subcmd (unused)
+      8,                             // report ID 8 (upstream's working method)
+      &frequency,                    // 1-byte frequency payload
+      1,                             // payload length = 1 byte
+      0,                             // value (unused)
+      0,                             // index (unused)
+      1                              // subcmd = 1 (as per upstream)
     );
 
-    Util::DriverLog("[HEADSET_HAPTIC] Sent haptic vibration: amplitude={}, frequency={}", amplitude, frequency);
+    Util::DriverLog("[HEADSET_HAPTIC] Sent haptic vibration: amplitude={}, frequency={} (using report ID 8)", amplitude, frequency);
   }
 
 } // psvr2_toolkit

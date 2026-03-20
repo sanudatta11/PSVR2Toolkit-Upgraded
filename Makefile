@@ -36,6 +36,8 @@ build-driver:
 	$(MSBUILD) /m /p:Configuration=$(CONFIGURATION) /p:Platform=x64 /t:psvr2_openvr_driver_ex:Rebuild PSVR2Toolkit.sln
 
 build-app:
+	@echo "Building IPC library ($(CONFIGURATION))..."
+	$(MSBUILD) /m /p:Configuration=$(CONFIGURATION) /t:Rebuild projects\PSVR2Toolkit.IPC\PSVR2Toolkit.IPC.csproj
 	@echo "Building companion app ($(CONFIGURATION))..."
 	$(MSBUILD) /m /p:Configuration=$(CONFIGURATION) /t:Rebuild projects\PSVR2Toolkit.App\PSVR2Toolkit.App.csproj
 

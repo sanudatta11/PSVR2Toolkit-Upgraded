@@ -4,6 +4,7 @@
 #include "hmd_driver_loader.h"
 #include "hook_lib.h"
 #include "vr_settings.h"
+#include "util.h"
 
 namespace psvr2_toolkit {
 
@@ -14,6 +15,12 @@ namespace psvr2_toolkit {
   int (*CaesarUsbThreadImuStatus__poll)(void *) = nullptr;
   int CaesarUsbThreadImuStatus__pollHook(void *thisptr) {
     int result = CaesarUsbThreadImuStatus__poll(thisptr);
+
+    static bool s_firstPoll = true;
+    if (s_firstPoll) {
+      Util::DriverLog("[USB_THREAD] USB polling loop started - haptics now available");
+      s_firstPoll = false;
+    }
 
     if (s_gazeEnabled) {
       CaesarUsbThread__report(thisptr, true, 12, nullptr, 0, 0, 0, 1); // Keep gaze enabled

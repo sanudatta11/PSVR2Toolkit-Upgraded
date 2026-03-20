@@ -262,6 +262,9 @@
 
                     <StackPanel Grid.Row="2" Margin="0,0,0,10">
                         <Button x:Name="LaunchCalibrationButton" Content="Launch Calibration Tool" Padding="15,8" FontSize="14" FontWeight="Bold" Click="LaunchCalibrationButton_Click" Margin="0,0,0,10"/>
+                        <TextBlock TextWrapping="Wrap" Margin="0,0,0,10" Foreground="#006600" FontStyle="Italic">
+                            ✓ Calibration tool is ready. Make sure you're in VR before launching. Look at red dots and pull right trigger to calibrate.
+                        </TextBlock>
                         <Button x:Name="ClearCalibrationButton" Content="Clear Calibration" Padding="10,5" Click="ClearCalibrationButton_Click" Margin="0,0,0,15"/>
 
                         <Border BorderBrush="#CCCCCC" BorderThickness="1" Padding="10" CornerRadius="4" Background="#F0F8FF">
