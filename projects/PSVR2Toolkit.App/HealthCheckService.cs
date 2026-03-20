@@ -335,6 +335,8 @@ namespace PSVR2Toolkit.App
         {
             var relativePaths = new[]
             {
+                @"steamapps\common\PlayStation VR2 App\SteamVR_Plug-In\bin\win64",
+                @"SteamApps\common\PlayStation VR2 App\SteamVR_Plug-In\bin\win64",
                 @"steamapps\common\PS VR2\SteamVR_Plug-In\bin\win64",
                 @"SteamApps\common\PS VR2\SteamVR_Plug-In\bin\win64"
             };

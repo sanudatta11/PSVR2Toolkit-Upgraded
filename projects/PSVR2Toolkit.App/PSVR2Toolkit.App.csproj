@@ -13,6 +13,10 @@
     <None Update="Resources\TriggerProfiles.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\..\PSVR2EyeTrackingCalibration.exe">
+      <Link>PSVR2EyeTrackingCalibration.exe</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

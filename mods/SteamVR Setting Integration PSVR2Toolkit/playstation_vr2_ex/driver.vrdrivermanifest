@@ -1,7 +1,0 @@
-{
-	"alwaysActivate": false,
-	"name" : "playstation_vr2_ex",
-	"directory" : "",
-	"resourceOnly" : true,
-	"hmd_presence" : []
-}

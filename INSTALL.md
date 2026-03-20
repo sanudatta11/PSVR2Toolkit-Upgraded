@@ -6,7 +6,7 @@
 
 Navigate to your Steam installation and find the PS VR2 driver folder:
 ```
-Steam\steamapps\common\PS VR2\SteamVR_Plug-In\bin\win64\
+Steam\steamapps\common\PlayStation VR2 App\SteamVR_Plug-In\bin\win64\
 ```
 
 Common Steam locations:
@@ -101,7 +101,7 @@ Run `PSVR2Toolkit.App.exe` from where you installed it.
 
 To restore the original Sony driver:
 
-1. Navigate to: `Steam\steamapps\common\PS VR2\SteamVR_Plug-In\bin\win64\`
+1. Navigate to: `Steam\steamapps\common\PlayStation VR2 App\SteamVR_Plug-In\bin\win64\`
 2. Delete `driver_playstation_vr2.dll`
 3. Rename `driver_playstation_vr2_orig.dll` to `driver_playstation_vr2.dll`
 4. Restart SteamVR
