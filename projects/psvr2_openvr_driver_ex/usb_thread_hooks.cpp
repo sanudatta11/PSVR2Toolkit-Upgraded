@@ -21,7 +21,11 @@ namespace psvr2_toolkit {
 
     // Always provide the USB thread context to HeadsetHapticManager so it can send
     // headset haptic output reports regardless of whether gaze tracking is active.
-    HeadsetHapticManager::Instance()->SetUsbThreadContext(thisptr);
+    HeadsetHapticManager *pHapticManager = HeadsetHapticManager::Instance();
+    pHapticManager->SetUsbThreadContext(thisptr);
+
+    // Update continuous vibration if enabled (upstream-style)
+    pHapticManager->UpdateContinuousVibration();
 
     return result;
   }

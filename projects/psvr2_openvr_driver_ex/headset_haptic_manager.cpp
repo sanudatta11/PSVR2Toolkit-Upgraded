@@ -25,6 +25,7 @@ namespace psvr2_toolkit {
   HeadsetHapticManager::HeadsetHapticManager()
     : m_initialized(false)
     , m_pUsbThreadContext(nullptr)
+    , m_continuousVibrationFrequency(0)
   {}
 
   HeadsetHapticManager *HeadsetHapticManager::Instance() {
@@ -63,13 +64,33 @@ namespace psvr2_toolkit {
     (void)processId;
 
     switch (pHeader->type) {
-      case ipc::Command_ClientHeadsetHapticVibration: {
+      case ipc::Command_ClientHeadsetHapticVibration: // Also handles Command_ClientSetHeadsetVibration (alias)
+      {
         if (pHeader->dataLen == sizeof(ipc::CommandDataClientHeadsetHapticVibration_t)) {
           ipc::CommandDataClientHeadsetHapticVibration_t *pRequest = reinterpret_cast<ipc::CommandDataClientHeadsetHapticVibration_t *>(pData);
-          SendHapticReport(pRequest->amplitude, pRequest->frequency);
+
+          // If only frequency is set (amplitude is 0), use continuous vibration mode
+          if (pRequest->amplitude == 0 && pRequest->frequency > 0) {
+            SetContinuousVibration(pRequest->frequency);
+          } else {
+            // Otherwise use one-shot haptic report
+            SendHapticReport(pRequest->amplitude, pRequest->frequency);
+          }
         }
         break;
       }
+    }
+  }
+
+  void HeadsetHapticManager::SetContinuousVibration(uint8_t frequency) {
+    m_continuousVibrationFrequency = frequency;
+    Util::DriverLog("[HEADSET_HAPTIC] Continuous vibration set to frequency={}", frequency);
+  }
+
+  void HeadsetHapticManager::UpdateContinuousVibration() {
+    if (m_continuousVibrationFrequency > 0 && s_CaesarUsbThread__report && m_pUsbThreadContext) {
+      // Send continuous vibration using upstream's simpler method (report ID 8, 1 byte)
+      s_CaesarUsbThread__report(m_pUsbThreadContext, true, 8, &m_continuousVibrationFrequency, 1, 0, 0, 1);
     }
   }
 

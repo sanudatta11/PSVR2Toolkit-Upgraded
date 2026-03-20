@@ -38,6 +38,7 @@ namespace psvr2_toolkit {
 
       // Headset haptic feedback (IPC version 5+)
       Command_ClientHeadsetHapticVibration, // CommandDataClientHeadsetHapticVibration_t
+      Command_ClientSetHeadsetVibration = Command_ClientHeadsetHapticVibration, // Alias for upstream compatibility
     };
 
     enum EHandshakeResultType : uint8_t {
@@ -203,6 +204,9 @@ namespace psvr2_toolkit {
       uint8_t amplitude;  // Motor strength (0 = off, 255 = maximum)
       uint8_t frequency;  // Vibration frequency in Hz (0-255)
     };
+
+    // Alias for upstream compatibility (simpler version with only frequency)
+    using CommandDataClientSetHeadsetVibration_t = CommandDataClientHeadsetHapticVibration_t;
 
     struct CommandHeader_t {
       ECommandType type;
