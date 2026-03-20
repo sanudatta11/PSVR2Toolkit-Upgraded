@@ -41,7 +41,7 @@ build-app:
 
 update-driver: build-driver
 	@echo "Installing driver (requires Administrator)..."
-	$(POWERSHELL) -NoProfile -ExecutionPolicy Bypass -File update-driver.ps1 -Configuration $(CONFIGURATION)
+	@$(POWERSHELL) -NoProfile -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command \"Set-Location ''$(shell cd)''; & ''.\update-driver.ps1'' -Configuration $(CONFIGURATION) -SkipBuild\"' -Wait"
 
 run: run-steamvr run-app
 	@echo "SteamVR and companion app launched!"
